@@ -1,10 +1,13 @@
 <script lang="ts">
 	import "../app.css"
+	import { onMount } from "svelte"
 	import type { Snippet } from "svelte"
 	import { page } from "$app/state"
 	import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query"
 	import { chainStore } from "$lib/stores/chain.svelte"
-	import { CHAINS } from "$lib/graphql/types"
+	import { getChainName } from "$lib/graphql/types"
+	import { CHAINS_QUERY } from "$lib/graphql/queries"
+	import { gqlClient } from "$lib/graphql/client"
 
 	let { children }: { children: Snippet } = $props()
 
@@ -28,6 +31,23 @@
 		if (href === "/") return page.url.pathname === "/"
 		return page.url.pathname.startsWith(href)
 	}
+
+	let chainsLoading = $state(true)
+
+	onMount(async () => {
+		try {
+			const data = await gqlClient.request<{ _meta: { chainId: number }[] }>(
+				CHAINS_QUERY,
+			)
+			const ids = data._meta.map((m) => m.chainId)
+			chainStore.chains = ids
+			if (ids.length > 0 && chainStore.selected === null) {
+				chainStore.selected = ids[0]
+			}
+		} finally {
+			chainsLoading = false
+		}
+	})
 </script>
 
 <QueryClientProvider client={queryClient}>
@@ -90,11 +110,15 @@
 					}}
 				>
 					<option value="all">All chains</option>
-					{#each CHAINS as chain}
-						<option value={String(chain.id)}
-							>{chain.name} ({chain.id})</option
-						>
-					{/each}
+					{#if chainsLoading}
+						<option disabled>Loading…</option>
+					{:else}
+						{#each chainStore.chains as chainId}
+							<option value={String(chainId)}
+								>{getChainName(chainId)} ({chainId})</option
+							>
+						{/each}
+					{/if}
 				</select>
 			</div>
 		</aside>

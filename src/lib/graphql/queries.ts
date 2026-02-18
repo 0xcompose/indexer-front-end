@@ -1,5 +1,13 @@
 import { gql } from "graphql-request"
 
+export const CHAINS_QUERY = gql`
+	query Chains {
+		_meta {
+			chainId
+		}
+	}
+`
+
 export const DASHBOARD_STATS = gql`
 	query DashboardStats($chainId: Int!) {
 		Pool_aggregate(where: { chainId: { _eq: $chainId } }) {

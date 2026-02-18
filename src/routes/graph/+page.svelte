@@ -3,7 +3,6 @@
 	import { gqlClient } from "$lib/graphql/client"
 	import { GRAPH_SEED_TOKENS } from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
-	import { CHAINS } from "$lib/graphql/types"
 	import { browser } from "$app/environment"
 
 	const SEED_LIMIT = 50
@@ -12,10 +11,10 @@
 		queryKey: ["graph-seed", chainStore.selected],
 		queryFn: () =>
 			gqlClient.request(GRAPH_SEED_TOKENS, {
-				chainId: chainStore.selected ?? CHAINS[0].id,
+				chainId: chainStore.selected ?? chainStore.firstChainId,
 				limit: SEED_LIMIT,
 			}),
-		enabled: browser,
+		enabled: browser && (chainStore.selected ?? chainStore.firstChainId) !== null,
 	}))
 
 	const seedTokens = $derived((seedQuery.data as any)?.Token ?? [])

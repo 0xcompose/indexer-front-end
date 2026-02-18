@@ -1,7 +1,10 @@
-import { CHAINS } from "$lib/graphql/types"
-
 class ChainStore {
-	selected = $state<number | null>(CHAINS[0].id)
+	chains = $state<number[]>([])
+	selected = $state<number | null>(null)
+
+	get firstChainId(): number | null {
+		return this.chains[0] ?? null
+	}
 }
 
 export const chainStore = new ChainStore()

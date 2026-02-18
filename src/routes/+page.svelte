@@ -3,7 +3,7 @@
 	import { gqlClient } from "$lib/graphql/client"
 	import { DASHBOARD_STATS, POOLS_BY_PROTOCOL } from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
-	import { CHAINS, ALL_PROTOCOLS } from "$lib/graphql/types"
+	import { getChainName, ALL_PROTOCOLS } from "$lib/graphql/types"
 	import StatCard from "$lib/components/ui/StatCard.svelte"
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
 	import EChart from "$lib/components/charts/EChart.svelte"
@@ -21,17 +21,19 @@
 
 	const statsQuery = createQuery(() => ({
 		queryKey: ["dashboard-stats", chainStore.selected],
+		enabled: (chainStore.selected ?? chainStore.firstChainId) !== null,
 		queryFn: () =>
 			gqlClient.request(DASHBOARD_STATS, {
-				chainId: chainStore.selected ?? CHAINS[0].id,
+				chainId: chainStore.selected ?? chainStore.firstChainId,
 			}),
 	}))
 
 	const protocolQuery = createQuery(() => ({
 		queryKey: ["pools-by-protocol", chainStore.selected],
+		enabled: (chainStore.selected ?? chainStore.firstChainId) !== null,
 		queryFn: () =>
 			gqlClient.request(POOLS_BY_PROTOCOL, {
-				chainId: chainStore.selected ?? CHAINS[0].id,
+				chainId: chainStore.selected ?? chainStore.firstChainId,
 			}),
 	}))
 
@@ -108,7 +110,7 @@
 
 	const chainLabel = $derived(
 		chainStore.selected
-			? `Chain: ${CHAINS.find((c) => c.id === chainStore.selected)?.name ?? chainStore.selected}`
+			? `Chain: ${getChainName(chainStore.selected)}`
 			: "All chains",
 	)
 </script>

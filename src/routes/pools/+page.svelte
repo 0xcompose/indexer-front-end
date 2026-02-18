@@ -10,7 +10,7 @@
 		POOLS_BY_TOKEN,
 	} from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
-	import { ALL_PROTOCOLS, CHAINS } from "$lib/graphql/types"
+	import { ALL_PROTOCOLS, getChainName } from "$lib/graphql/types"
 	import type { DexProtocol, PoolWithTokens } from "$lib/graphql/types"
 	import ProtocolBadge from "$lib/components/ui/ProtocolBadge.svelte"
 	import AddressCell from "$lib/components/ui/AddressCell.svelte"
@@ -161,7 +161,7 @@
 	}
 
 	function chainName(id: number) {
-		return CHAINS.find((c) => c.id === id)?.name ?? String(id)
+		return getChainName(id)
 	}
 </script>
 

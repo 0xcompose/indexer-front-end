@@ -22,10 +22,15 @@ export interface Chain {
 	name: string
 }
 
-export const CHAINS: Chain[] = [
-	{ id: 122, name: "Fuse" },
-	{ id: 1514, name: "Story" },
-]
+export const CHAIN_NAMES: Record<number, string> = {
+	122: "Fuse",
+	1514: "Story",
+	43111: "Hemi",
+}
+
+export function getChainName(id: number): string {
+	return CHAIN_NAMES[id] ?? `Chain ${id}`
+}
 
 export interface Token {
 	id: string

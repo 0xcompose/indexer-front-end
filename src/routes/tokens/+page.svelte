@@ -8,7 +8,7 @@
 		TOKEN_POOLS,
 	} from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
-	import { CHAINS } from "$lib/graphql/types"
+	import { getChainName } from "$lib/graphql/types"
 	import SearchInput from "$lib/components/ui/SearchInput.svelte"
 	import AddressCell from "$lib/components/ui/AddressCell.svelte"
 	import ProtocolBadge from "$lib/components/ui/ProtocolBadge.svelte"
@@ -111,7 +111,7 @@
 	}
 
 	function chainName(id: number) {
-		return CHAINS.find((c) => c.id === id)?.name ?? String(id)
+		return getChainName(id)
 	}
 </script>
 
