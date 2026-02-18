@@ -1,7 +1,7 @@
-import { CHAINS } from '$lib/graphql/types';
+import { CHAINS } from "$lib/graphql/types"
 
 class ChainStore {
-	selected = $state<number | null>(CHAINS[0].id);
+	selected = $state<number | null>(CHAINS[0].id)
 }
 
-export const chainStore = new ChainStore();
+export const chainStore = new ChainStore()

@@ -1,8 +1,8 @@
 <script lang="ts">
 	let {
-		value = $bindable(''),
-		placeholder = 'Search...'
-	}: { value?: string; placeholder?: string } = $props();
+		value = $bindable(""),
+		placeholder = "Search...",
+	}: { value?: string; placeholder?: string } = $props()
 </script>
 
 <div class="relative">

@@ -1,19 +1,19 @@
 <script lang="ts">
-	import type { DexProtocol } from '$lib/graphql/types';
+	import type { DexProtocol } from "$lib/graphql/types"
 
-	let { protocol }: { protocol: DexProtocol } = $props();
+	let { protocol }: { protocol: DexProtocol } = $props()
 
 	const colors: Record<DexProtocol, string> = {
-		UniswapV2: '#ff007a',
-		UniswapV3: '#ff69b4',
-		UniswapV4: '#e040fb',
-		PancakeSwapInfinity: '#1fc7d4',
-		AlgebraIntegral: '#f0b90b',
-		Curve: '#d62728',
-		BalancerV3: '#1e90ff'
-	};
+		UniswapV2: "#ff007a",
+		UniswapV3: "#ff69b4",
+		UniswapV4: "#e040fb",
+		PancakeSwapInfinity: "#1fc7d4",
+		AlgebraIntegral: "#f0b90b",
+		Curve: "#d62728",
+		BalancerV3: "#1e90ff",
+	}
 
-	const color = $derived(colors[protocol] ?? '#8b949e');
+	const color = $derived(colors[protocol] ?? "#8b949e")
 </script>
 
 <span
