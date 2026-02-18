@@ -3,7 +3,8 @@
 	import { gqlClient } from "$lib/graphql/client"
 	import { DASHBOARD_STATS, POOLS_BY_PROTOCOL } from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
-	import { getChainName, ALL_PROTOCOLS } from "$lib/graphql/types"
+	import { chainlistStore } from "$lib/stores/chainlist.svelte"
+	import { ALL_PROTOCOLS } from "$lib/graphql/types"
 	import StatCard from "$lib/components/ui/StatCard.svelte"
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
 	import EChart from "$lib/components/charts/EChart.svelte"
@@ -110,7 +111,7 @@
 
 	const chainLabel = $derived(
 		chainStore.selected
-			? `Chain: ${getChainName(chainStore.selected)}`
+			? `Chain: ${chainlistStore.getChainName(chainStore.selected)}`
 			: "All chains",
 	)
 </script>

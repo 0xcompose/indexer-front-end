@@ -8,7 +8,7 @@
 		TOKEN_POOLS,
 	} from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
-	import { getChainName } from "$lib/graphql/types"
+	import { chainlistStore } from "$lib/stores/chainlist.svelte"
 	import SearchInput from "$lib/components/ui/SearchInput.svelte"
 	import AddressCell from "$lib/components/ui/AddressCell.svelte"
 	import ProtocolBadge from "$lib/components/ui/ProtocolBadge.svelte"
@@ -111,7 +111,7 @@
 	}
 
 	function chainName(id: number) {
-		return getChainName(id)
+		return chainlistStore.getChainName(id)
 	}
 </script>
 

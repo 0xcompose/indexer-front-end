@@ -5,7 +5,7 @@
 	import { page } from "$app/state"
 	import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query"
 	import { chainStore } from "$lib/stores/chain.svelte"
-	import { getChainName } from "$lib/graphql/types"
+	import { chainlistStore } from "$lib/stores/chainlist.svelte"
 	import { CHAINS_QUERY } from "$lib/graphql/queries"
 	import { gqlClient } from "$lib/graphql/client"
 
@@ -35,6 +35,7 @@
 	let chainsLoading = $state(true)
 
 	onMount(async () => {
+		chainlistStore.load()
 		try {
 			const data = await gqlClient.request<{ _meta: { chainId: number }[] }>(
 				CHAINS_QUERY,
@@ -115,7 +116,7 @@
 					{:else}
 						{#each chainStore.chains as chainId}
 							<option value={String(chainId)}
-								>{getChainName(chainId)} ({chainId})</option
+								>{chainlistStore.getChainName(chainId)} ({chainId})</option
 							>
 						{/each}
 					{/if}

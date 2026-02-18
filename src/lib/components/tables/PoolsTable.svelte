@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ProtocolBadge from "$lib/components/ui/ProtocolBadge.svelte"
 	import AddressCell from "$lib/components/ui/AddressCell.svelte"
-	import { getChainName } from "$lib/graphql/types"
+	import { chainlistStore } from "$lib/stores/chainlist.svelte"
 	import type { PoolWithTokens } from "$lib/graphql/types"
 
 	let {
@@ -13,7 +13,7 @@
 	} = $props()
 
 	function chainName(id: number) {
-		return getChainName(id)
+		return chainlistStore.getChainName(id)
 	}
 </script>
 

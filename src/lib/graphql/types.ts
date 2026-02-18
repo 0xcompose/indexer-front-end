@@ -17,21 +17,6 @@ export const ALL_PROTOCOLS: DexProtocol[] = [
 	"BalancerV3",
 ]
 
-export interface Chain {
-	id: number
-	name: string
-}
-
-export const CHAIN_NAMES: Record<number, string> = {
-	122: "Fuse",
-	1514: "Story",
-	43111: "Hemi",
-}
-
-export function getChainName(id: number): string {
-	return CHAIN_NAMES[id] ?? `Chain ${id}`
-}
-
 export interface Token {
 	id: string
 	chainId: number
