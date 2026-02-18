@@ -10,7 +10,8 @@
 		return `${addr.slice(0, 6)}…${addr.slice(-4)}`
 	}
 
-	function copy() {
+	function copy(e: MouseEvent) {
+		e.stopPropagation()
 		navigator.clipboard.writeText(address)
 		copied = true
 		clearTimeout(timer)
