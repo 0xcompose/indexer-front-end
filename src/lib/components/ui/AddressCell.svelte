@@ -23,7 +23,7 @@
 		>{short ? shorten(address) : address}</span
 	>
 	<button
-		class="text-[0.85rem] opacity-0 transition-all duration-150 group-hover:opacity-60 hover:!opacity-100"
+		class="text-[1rem] opacity-0 transition-all duration-150 group-hover:opacity-60 hover:!opacity-100"
 		style={copied ? "color: #3fb950; opacity: 1;" : ""}
 		onclick={copy}
 		title={copied ? "Copied!" : "Copy address"}
