@@ -90,20 +90,23 @@
 	)
 
 	const protocolData = $derived.by(() => {
+		let data: { name: string; value: number }[]
 		if (useAllChains) {
 			const byProtocol: Record<string, number> = {}
 			for (const p of ALL_PROTOCOLS) byProtocol[p] = 0
 			for (const row of distributionRows)
 				byProtocol[row.protocol] = (byProtocol[row.protocol] ?? 0) + row.poolCount
-			return ALL_PROTOCOLS.map((name) => ({
+			data = ALL_PROTOCOLS.map((name) => ({
 				name,
 				value: byProtocol[name] ?? 0,
 			})).filter((d) => d.value > 0)
+		} else {
+			data = distributionRows.map((row) => ({
+				name: row.protocol,
+				value: row.poolCount,
+			})).filter((d) => d.value > 0)
 		}
-		return distributionRows.map((row) => ({
-			name: row.protocol,
-			value: row.poolCount,
-		})).filter((d) => d.value > 0)
+		return data.toSorted((a, b) => b.value - a.value)
 	})
 
 	const pieOption = $derived<EChartsOption>({
