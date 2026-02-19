@@ -11,14 +11,15 @@ export const CHAINS_QUERY = gql`
 export const CHAIN_METRICS_BY_CHAIN = gql`
 	query ChainMetricsByChain($chainId: Int!) {
 		ChainMetrics(where: { chainId: { _eq: $chainId } }) {
+			chainId
 			totalPools
 			totalTokens
 		}
 	}
 `
 
-export const CHAIN_METRICS_ALL = gql`
-	query ChainMetricsAll {
+export const CHAIN_METRICS_ALL_CHAINS = gql`
+	query ChainMetricsAllChains {
 		ChainMetrics {
 			chainId
 			totalPools
@@ -27,77 +28,46 @@ export const CHAIN_METRICS_ALL = gql`
 	}
 `
 
-export const DASHBOARD_STATS = gql`
-	query DashboardStats($chainId: Int!) {
-		Pool_aggregate(where: { chainId: { _eq: $chainId } }) {
-			aggregate {
-				count
-			}
-		}
-		Token_aggregate(where: { chainId: { _eq: $chainId } }) {
-			aggregate {
-				count
-			}
+/** Lightweight pool list for dashboard stats (no _aggregate). */
+export const DASHBOARD_POOLS_BY_CHAIN = gql`
+	query DashboardPoolsByChain($chainId: Int!, $limit: Int!) {
+		Pool(
+			where: { chainId: { _eq: $chainId } }
+			limit: $limit
+			order_by: { address: asc }
+		) {
+			id
+			protocol
 		}
 	}
 `
 
-export const POOLS_BY_PROTOCOL = gql`
-	query PoolsByProtocol($chainId: Int!) {
-		UniswapV2: Pool_aggregate(
-			where: { chainId: { _eq: $chainId }, protocol: { _eq: UniswapV2 } }
-		) {
-			aggregate {
-				count
-			}
+export const DASHBOARD_POOLS_ALL_CHAINS = gql`
+	query DashboardPoolsAllChains($limit: Int!) {
+		Pool(limit: $limit, order_by: { address: asc }) {
+			id
+			protocol
 		}
-		UniswapV3: Pool_aggregate(
-			where: { chainId: { _eq: $chainId }, protocol: { _eq: UniswapV3 } }
+	}
+`
+
+/** Lightweight token list for dashboard stats (no _aggregate). */
+export const DASHBOARD_TOKENS_BY_CHAIN = gql`
+	query DashboardTokensByChain($chainId: Int!, $limit: Int!) {
+		Token(
+			where: { chainId: { _eq: $chainId } }
+			limit: $limit
+			order_by: { address: asc }
 		) {
-			aggregate {
-				count
-			}
+			id
 		}
-		UniswapV4: Pool_aggregate(
-			where: { chainId: { _eq: $chainId }, protocol: { _eq: UniswapV4 } }
-		) {
-			aggregate {
-				count
-			}
-		}
-		PancakeSwapInfinity: Pool_aggregate(
-			where: {
-				chainId: { _eq: $chainId }
-				protocol: { _eq: PancakeSwapInfinity }
-			}
-		) {
-			aggregate {
-				count
-			}
-		}
-		AlgebraIntegral: Pool_aggregate(
-			where: {
-				chainId: { _eq: $chainId }
-				protocol: { _eq: AlgebraIntegral }
-			}
-		) {
-			aggregate {
-				count
-			}
-		}
-		Curve: Pool_aggregate(
-			where: { chainId: { _eq: $chainId }, protocol: { _eq: Curve } }
-		) {
-			aggregate {
-				count
-			}
-		}
-		BalancerV3: Pool_aggregate(
-			where: { chainId: { _eq: $chainId }, protocol: { _eq: BalancerV3 } }
-		) {
-			aggregate {
-				count
-			}
+	}
+`
+
+export const DASHBOARD_TOKENS_ALL_CHAINS = gql`
+	query DashboardTokensAllChains($limit: Int!) {
+		Token(limit: $limit, order_by: { address: asc }) {
+			id
 		}
 	}
 `

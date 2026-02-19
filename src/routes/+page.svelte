@@ -1,14 +1,22 @@
 <script lang="ts">
 	import { createQuery } from "@tanstack/svelte-query"
 	import { gqlClient } from "$lib/graphql/client"
-	import { DASHBOARD_STATS, POOLS_BY_PROTOCOL } from "$lib/graphql/queries"
+	import {
+		CHAIN_METRICS_BY_CHAIN,
+		CHAIN_METRICS_ALL_CHAINS,
+		DASHBOARD_POOLS_BY_CHAIN,
+		DASHBOARD_POOLS_ALL_CHAINS,
+	} from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
 	import { chainlistStore } from "$lib/stores/chainlist.svelte"
 	import { ALL_PROTOCOLS } from "$lib/graphql/types"
+	import type { DexProtocol } from "$lib/graphql/types"
 	import StatCard from "$lib/components/ui/StatCard.svelte"
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
 	import EChart from "$lib/components/charts/EChart.svelte"
 	import type { EChartsOption } from "echarts"
+
+	const DASHBOARD_LIMIT = 10_000
 
 	const PROTOCOL_COLORS: Record<string, string> = {
 		UniswapV2: "#ff007a",
@@ -20,37 +28,73 @@
 		BalancerV3: "#1e90ff",
 	}
 
-	const statsQuery = createQuery(() => ({
-		queryKey: ["dashboard-stats", chainStore.selected],
-		enabled: (chainStore.selected ?? chainStore.firstChainId) !== null,
+	const DEBUG = true
+	const log = (...args: unknown[]) =>
+		DEBUG && console.log("[Dashboard]", ...args)
+
+	const chainId = $derived(chainStore.selected ?? chainStore.firstChainId)
+	const useAllChains = $derived(chainStore.selected === null)
+
+	const metricsQuery = createQuery(() => ({
+		queryKey: ["chain-metrics", chainStore.selected, useAllChains],
+		enabled: chainId !== null,
 		queryFn: () =>
-			gqlClient.request(DASHBOARD_STATS, {
-				chainId: chainStore.selected ?? chainStore.firstChainId,
-			}),
+			useAllChains
+				? gqlClient.request(CHAIN_METRICS_ALL_CHAINS)
+				: gqlClient.request(CHAIN_METRICS_BY_CHAIN, {
+						chainId: chainId!,
+					}),
 	}))
 
-	const protocolQuery = createQuery(() => ({
-		queryKey: ["pools-by-protocol", chainStore.selected],
-		enabled: (chainStore.selected ?? chainStore.firstChainId) !== null,
+	type ChainMetricsRow = {
+		chainId: number
+		totalPools: number
+		totalTokens: number
+	}
+	const metricsRows = $derived(
+		(metricsQuery.data as { ChainMetrics?: ChainMetricsRow[] })
+			?.ChainMetrics ?? [],
+	)
+	const totalPools = $derived.by(() =>
+		useAllChains
+			? metricsRows.reduce((s, r) => s + (r.totalPools ?? 0), 0)
+			: (metricsRows[0]?.totalPools ?? 0),
+	)
+	const totalTokens = $derived.by(() =>
+		useAllChains
+			? metricsRows.reduce((s, r) => s + (r.totalTokens ?? 0), 0)
+			: (metricsRows[0]?.totalTokens ?? 0),
+	)
+
+	const poolsQuery = createQuery(() => ({
+		queryKey: ["dashboard-pools", chainStore.selected, useAllChains],
+		enabled: chainId !== null,
 		queryFn: () =>
-			gqlClient.request(POOLS_BY_PROTOCOL, {
-				chainId: chainStore.selected ?? chainStore.firstChainId,
-			}),
+			useAllChains
+				? gqlClient.request(DASHBOARD_POOLS_ALL_CHAINS, {
+						limit: DASHBOARD_LIMIT,
+					})
+				: gqlClient.request(DASHBOARD_POOLS_BY_CHAIN, {
+						chainId: chainId!,
+						limit: DASHBOARD_LIMIT,
+					}),
 	}))
 
-	const totalPools = $derived(
-		(statsQuery.data as any)?.Pool_aggregate?.aggregate?.count ?? 0,
-	)
-	const totalTokens = $derived(
-		(statsQuery.data as any)?.Token_aggregate?.aggregate?.count ?? 0,
+	const pools = $derived(
+		(poolsQuery.data as { Pool?: { id: string; protocol: DexProtocol }[] })
+			?.Pool ?? [],
 	)
 
-	const protocolData = $derived(
-		ALL_PROTOCOLS.map((p) => ({
-			name: p,
-			value: (protocolQuery.data as any)?.[p]?.aggregate?.count ?? 0,
-		})).filter((d) => d.value > 0),
-	)
+	const protocolData = $derived.by(() => {
+		const counts: Record<string, number> = {}
+		for (const p of ALL_PROTOCOLS) counts[p] = 0
+		for (const pool of pools)
+			counts[pool.protocol] = (counts[pool.protocol] ?? 0) + 1
+		return ALL_PROTOCOLS.map((name) => ({
+			name,
+			value: counts[name] ?? 0,
+		})).filter((d) => d.value > 0)
+	})
 
 	const pieOption = $derived<EChartsOption>({
 		backgroundColor: "transparent",
@@ -119,9 +163,9 @@
 <div class="p-6">
 	<PageHeader title="Dashboard" subtitle={chainLabel} />
 
-	{#if statsQuery.isLoading}
+	{#if metricsQuery.isLoading || poolsQuery.isLoading}
 		<p class="text-sm" style="color: var(--color-muted);">Loading stats…</p>
-	{:else if statsQuery.isError}
+	{:else if metricsQuery.isError || poolsQuery.isError}
 		<p class="text-sm text-red-400">
 			Failed to load stats. Is the indexer running?
 		</p>
@@ -147,9 +191,9 @@
 					class="mb-3 text-sm font-semibold"
 					style="color: var(--color-text);"
 				>
-					Pools by Protocol
+					Pools Count By Protocol
 				</h2>
-				{#if protocolQuery.isLoading}
+				{#if poolsQuery.isLoading}
 					<p class="text-sm" style="color: var(--color-muted);">
 						Loading…
 					</p>
@@ -168,7 +212,7 @@
 				>
 					Pool Count per Protocol
 				</h2>
-				{#if protocolQuery.isLoading}
+				{#if poolsQuery.isLoading}
 					<p class="text-sm" style="color: var(--color-muted);">
 						Loading…
 					</p>
@@ -205,7 +249,7 @@
 					<tbody>
 						{#each protocolData as row}
 							<tr
-								style="border-bottom: 1px solid var(--color-border)22;"
+								style="border-bottom: 1px solid var(--color-border);"
 							>
 								<td
 									class="px-4 py-2"

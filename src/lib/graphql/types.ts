@@ -43,10 +43,6 @@ export interface PoolWithTokens extends Pool {
 	poolTokens: Array<{ token: Token; tokenIndex: number }>
 }
 
-export interface AggregateResult {
-	aggregate: { count: number }
-}
-
 export interface ChainMetrics {
 	chainId: number
 	totalPools: number
