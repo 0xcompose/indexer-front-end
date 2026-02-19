@@ -64,36 +64,44 @@
 						limit: PAGE_SIZE,
 						offset,
 					}),
-		placeholderData: (prev: unknown) => prev,
 	}))
 
-	// Accumulate pages
+	// Reset offset and list when chain changes only (not on mount) to avoid clearing during quick nav
+	let prevChain = $state<number | null | undefined>(undefined)
+	$effect(() => {
+		const current = chainStore.selected
+		const prev = prevChain
+		prevChain = current
+		if (prev !== undefined && prev !== current) {
+			untrack(() => {
+				offset = 0
+				allTokens = []
+			})
+		}
+	})
+
+	// Accumulate pages — drive allTokens only from query data so no race with reset
 	let lastPageSize = $state(0)
 	$effect(() => {
-		const data = tokensQuery.data as any
-		if (!data) return
-		const incoming: Token[] = data.Token ?? []
-		untrack(() => {
-			lastPageSize = incoming.length
-			if (offset === 0) {
+		const data = tokensQuery.data as { Token?: Token[] } | undefined
+		const currentOffset = offset
+		if (currentOffset === 0) {
+			const incoming: Token[] = data?.Token ?? []
+			untrack(() => {
+				lastPageSize = incoming.length
 				allTokens = incoming
-			} else {
+			})
+		} else if (data?.Token?.length) {
+			const incoming: Token[] = data.Token
+			untrack(() => {
+				lastPageSize = incoming.length
 				const existingIds = new Set(allTokens.map((t) => t.id))
 				allTokens = [
 					...allTokens,
 					...incoming.filter((t) => !existingIds.has(t.id)),
 				]
-			}
-		})
-	})
-
-	// Reset on chain change
-	$effect(() => {
-		chainStore.selected // track
-		untrack(() => {
-			offset = 0
-			allTokens = []
-		})
+			})
+		}
 	})
 
 	// No aggregate available — hasMore is true while last page was full
