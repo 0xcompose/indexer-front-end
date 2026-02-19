@@ -8,6 +8,8 @@
 		POOLS_LIST_ALL_CHAINS,
 		POOLS_LIST_ALL_CHAINS_BY_PROTOCOL,
 		POOLS_BY_TOKEN,
+		CHAIN_METRICS_BY_CHAIN,
+		CHAIN_METRICS_ALL,
 	} from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
 	import { chainlistStore } from "$lib/stores/chainlist.svelte"
@@ -29,6 +31,30 @@
 	let allPools = $state<PoolWithTokens[]>([])
 	let selectedPool = $state<PoolWithTokens | null>(null)
 	let modalOpen = $state(false)
+
+	const chainMetricsQuery = createQuery(() => {
+		const chainId = chainStore.selected
+		const token = tokenFilter.trim()
+		if (token.length >= 10) return { queryKey: ["chain-metrics-skip"], queryFn: () => null, enabled: false }
+		if (chainId !== null) {
+			return {
+				queryKey: ["chain-metrics", chainId],
+				queryFn: () => gqlClient.request(CHAIN_METRICS_BY_CHAIN, { chainId }),
+			}
+		}
+		return {
+			queryKey: ["chain-metrics-all"],
+			queryFn: () => gqlClient.request(CHAIN_METRICS_ALL),
+		}
+	})
+
+	const totalPools = $derived.by(() => {
+		if (tokenFilter.trim().length >= 10) return null
+		const data = chainMetricsQuery.data as any
+		if (!data?.ChainMetrics?.length) return null
+		const metrics = data.ChainMetrics
+		return metrics.length === 1 ? metrics[0].totalPools : metrics.reduce((s: number, m: any) => s + m.totalPools, 0)
+	})
 
 	const poolsQuery = createQuery(() => {
 		const chainId = chainStore.selected
@@ -169,7 +195,9 @@
 <div class="p-6">
 	<PageHeader
 		title="Pool Explorer"
-		subtitle="{allPools.length}{hasMore ? '+' : ''} pools loaded"
+		subtitle={totalPools != null
+			? `${allPools.length.toLocaleString()} of ${totalPools.toLocaleString()} pools${hasMore ? ' loaded' : ''}`
+			: `${allPools.length.toLocaleString()}${hasMore ? '+' : ''} pools loaded`}
 	/>
 
 	<div class="mb-4 flex flex-wrap gap-3">

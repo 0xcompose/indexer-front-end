@@ -6,6 +6,8 @@
 		TOKENS_LIST,
 		TOKENS_LIST_ALL_CHAINS,
 		TOKEN_POOLS,
+		CHAIN_METRICS_BY_CHAIN,
+		CHAIN_METRICS_ALL,
 	} from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
 	import { chainlistStore } from "$lib/stores/chainlist.svelte"
@@ -15,7 +17,7 @@
 	import LoadMore from "$lib/components/ui/LoadMore.svelte"
 	import Modal from "$lib/components/ui/Modal.svelte"
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
-	import type { Token, PoolWithTokens } from "$lib/graphql/types"
+	import type { Token, PoolToken, PoolWithTokens } from "$lib/graphql/types"
 
 	const PAGE_SIZE = 1000
 
@@ -24,6 +26,30 @@
 	let allTokens = $state<Token[]>([])
 	let selectedToken = $state<Token | null>(null)
 	let modalOpen = $state(false)
+
+	const chainMetricsQuery = createQuery(() =>
+		chainStore.selected !== null
+			? {
+					queryKey: ["chain-metrics", chainStore.selected],
+					queryFn: () =>
+						gqlClient.request(CHAIN_METRICS_BY_CHAIN, {
+							chainId: chainStore.selected!,
+						}),
+				}
+			: {
+					queryKey: ["chain-metrics-all"],
+					queryFn: () => gqlClient.request(CHAIN_METRICS_ALL),
+				},
+	)
+
+	const totalTokens = $derived.by(() => {
+		const data = chainMetricsQuery.data as any
+		if (!data?.ChainMetrics?.length) return null
+		const metrics = data.ChainMetrics
+		return metrics.length === 1
+			? metrics[0].totalTokens
+			: metrics.reduce((s: number, m: any) => s + m.totalTokens, 0)
+	})
 
 	const tokensQuery = createQuery(() => ({
 		queryKey: ["tokens", chainStore.selected, offset],
@@ -118,7 +144,9 @@
 <div class="p-6">
 	<PageHeader
 		title="Token Explorer"
-		subtitle="{allTokens.length}{hasMore ? '+' : ''} tokens loaded"
+		subtitle={totalTokens != null
+			? `${allTokens.length.toLocaleString()} of ${totalTokens.toLocaleString()} tokens${hasMore ? ' loaded' : ''}`
+			: `${allTokens.length.toLocaleString()}${hasMore ? '+' : ''} tokens loaded`}
 	/>
 
 	<div class="mb-4 max-w-sm">
@@ -147,6 +175,10 @@
 						>
 						<th
 							class="px-4 py-2 text-right font-medium"
+							style="color: var(--color-muted);">Pools</th
+						>
+						<th
+							class="px-4 py-2 text-right font-medium"
 							style="color: var(--color-muted);">ID</th
 						>
 					</tr>
@@ -166,6 +198,12 @@
 								style="color: var(--color-muted);"
 							>
 								{chainName(token.chainId)}
+							</td>
+							<td
+								class="px-4 py-2.5 text-right tabular-nums"
+								style="color: var(--color-muted);"
+							>
+								{token.poolCount.toLocaleString()}
 							</td>
 							<td
 								class="px-4 py-2.5 text-right font-mono text-xs"
@@ -215,7 +253,7 @@
 						<ProtocolBadge protocol={pool.protocol} />
 					</div>
 					<div class="flex flex-wrap gap-1">
-						{#each pool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt}
+						{#each pool.poolTokens.toSorted((a: PoolToken, b: PoolToken) => a.tokenIndex - b.tokenIndex) as pt}
 							<AddressCell address={pt.token.address} />
 						{/each}
 					</div>

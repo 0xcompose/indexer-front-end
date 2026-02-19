@@ -8,6 +8,25 @@ export const CHAINS_QUERY = gql`
 	}
 `
 
+export const CHAIN_METRICS_BY_CHAIN = gql`
+	query ChainMetricsByChain($chainId: Int!) {
+		ChainMetrics(where: { chainId: { _eq: $chainId } }) {
+			totalPools
+			totalTokens
+		}
+	}
+`
+
+export const CHAIN_METRICS_ALL = gql`
+	query ChainMetricsAll {
+		ChainMetrics {
+			chainId
+			totalPools
+			totalTokens
+		}
+	}
+`
+
 export const DASHBOARD_STATS = gql`
 	query DashboardStats($chainId: Int!) {
 		Pool_aggregate(where: { chainId: { _eq: $chainId } }) {
@@ -214,21 +233,23 @@ export const TOKENS_LIST = gql`
 			where: { chainId: { _eq: $chainId } }
 			limit: $limit
 			offset: $offset
-			order_by: { address: asc }
+			order_by: { poolCount: desc }
 		) {
 			id
 			chainId
 			address
+			poolCount
 		}
 	}
 `
 
 export const TOKENS_LIST_ALL_CHAINS = gql`
 	query TokensListAllChains($limit: Int!, $offset: Int!) {
-		Token(limit: $limit, offset: $offset, order_by: { address: asc }) {
+		Token(limit: $limit, offset: $offset, order_by: { poolCount: desc }) {
 			id
 			chainId
 			address
+			poolCount
 		}
 	}
 `
