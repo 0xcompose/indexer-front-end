@@ -18,7 +18,7 @@ export const CHAIN_METRICS_BY_CHAIN = gql`
 	}
 `
 
-export const CHAIN_METRICS_ALL_CHAINS = gql`
+export const CHAIN_METRICS_ALL = gql`
 	query ChainMetricsAllChains {
 		ChainMetrics {
 			chainId
@@ -28,25 +28,22 @@ export const CHAIN_METRICS_ALL_CHAINS = gql`
 	}
 `
 
-/** Lightweight pool list for dashboard stats (no _aggregate). */
-export const DASHBOARD_POOLS_BY_CHAIN = gql`
-	query DashboardPoolsByChain($chainId: Int!, $limit: Int!) {
-		Pool(
-			where: { chainId: { _eq: $chainId } }
-			limit: $limit
-			order_by: { address: asc }
-		) {
-			id
+export const POOLS_PROTOCOL_DISTRIBUTION_BY_CHAIN = gql`
+	query PoolsProtocolDistributionByChain($chainId: Int!) {
+		PoolsProtocolDistributionMetrics(where: { chainId: { _eq: $chainId } }) {
+			chainId
 			protocol
+			poolCount
 		}
 	}
 `
 
-export const DASHBOARD_POOLS_ALL_CHAINS = gql`
-	query DashboardPoolsAllChains($limit: Int!) {
-		Pool(limit: $limit, order_by: { address: asc }) {
-			id
+export const POOLS_PROTOCOL_DISTRIBUTION_ALL_CHAINS = gql`
+	query PoolsProtocolDistributionAllChains {
+		PoolsProtocolDistributionMetrics {
+			chainId
 			protocol
+			poolCount
 		}
 	}
 `

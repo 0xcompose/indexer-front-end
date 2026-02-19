@@ -153,8 +153,8 @@
 	<PageHeader
 		title="Token Explorer"
 		subtitle={totalTokens != null
-			? `${allTokens.length.toLocaleString()} of ${totalTokens.toLocaleString()} tokens${hasMore ? ' loaded' : ''}`
-			: `${allTokens.length.toLocaleString()}${hasMore ? '+' : ''} tokens loaded`}
+			? `${allTokens.length.toLocaleString()} of ${totalTokens.toLocaleString()} tokens${hasMore ? " loaded" : ""}`
+			: `${allTokens.length.toLocaleString()}${hasMore ? "+" : ""} tokens loaded`}
 	/>
 
 	<div class="mb-4 max-w-sm">

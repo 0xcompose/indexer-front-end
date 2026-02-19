@@ -3,9 +3,9 @@
 	import { gqlClient } from "$lib/graphql/client"
 	import {
 		CHAIN_METRICS_BY_CHAIN,
-		CHAIN_METRICS_ALL_CHAINS,
-		DASHBOARD_POOLS_BY_CHAIN,
-		DASHBOARD_POOLS_ALL_CHAINS,
+		CHAIN_METRICS_ALL,
+		POOLS_PROTOCOL_DISTRIBUTION_BY_CHAIN,
+		POOLS_PROTOCOL_DISTRIBUTION_ALL_CHAINS,
 	} from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
 	import { chainlistStore } from "$lib/stores/chainlist.svelte"
@@ -15,8 +15,6 @@
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
 	import EChart from "$lib/components/charts/EChart.svelte"
 	import type { EChartsOption } from "echarts"
-
-	const DASHBOARD_LIMIT = 10_000
 
 	const PROTOCOL_COLORS: Record<string, string> = {
 		UniswapV2: "#ff007a",
@@ -43,7 +41,7 @@
 		enabled: chainId !== null,
 		queryFn: () =>
 			useAllChains
-				? gqlClient.request(CHAIN_METRICS_ALL_CHAINS)
+				? gqlClient.request(CHAIN_METRICS_ALL)
 				: gqlClient.request(CHAIN_METRICS_BY_CHAIN, {
 						chainId: chainId!,
 					}),
@@ -69,33 +67,42 @@
 			: (metricsRows[0]?.totalTokens ?? 0),
 	)
 
-	const poolsQuery = createQuery(() => ({
-		queryKey: ["dashboard-pools", chainStore.selected, useAllChains],
+	type DistributionRow = {
+		chainId: number
+		protocol: DexProtocol
+		poolCount: number
+	}
+	const distributionQuery = createQuery(() => ({
+		queryKey: ["pools-protocol-distribution", chainStore.selected, useAllChains],
 		enabled: chainId !== null,
 		queryFn: () =>
 			useAllChains
-				? gqlClient.request(DASHBOARD_POOLS_ALL_CHAINS, {
-						limit: DASHBOARD_LIMIT,
-					})
-				: gqlClient.request(DASHBOARD_POOLS_BY_CHAIN, {
+				? gqlClient.request(POOLS_PROTOCOL_DISTRIBUTION_ALL_CHAINS)
+				: gqlClient.request(POOLS_PROTOCOL_DISTRIBUTION_BY_CHAIN, {
 						chainId: chainId!,
-						limit: DASHBOARD_LIMIT,
 					}),
 	}))
 
-	const pools = $derived(
-		(poolsQuery.data as { Pool?: { id: string; protocol: DexProtocol }[] })
-			?.Pool ?? [],
+	const distributionRows = $derived(
+		(distributionQuery.data as {
+			PoolsProtocolDistributionMetrics?: DistributionRow[]
+		})?.PoolsProtocolDistributionMetrics ?? [],
 	)
 
 	const protocolData = $derived.by(() => {
-		const counts: Record<string, number> = {}
-		for (const p of ALL_PROTOCOLS) counts[p] = 0
-		for (const pool of pools)
-			counts[pool.protocol] = (counts[pool.protocol] ?? 0) + 1
-		return ALL_PROTOCOLS.map((name) => ({
-			name,
-			value: counts[name] ?? 0,
+		if (useAllChains) {
+			const byProtocol: Record<string, number> = {}
+			for (const p of ALL_PROTOCOLS) byProtocol[p] = 0
+			for (const row of distributionRows)
+				byProtocol[row.protocol] = (byProtocol[row.protocol] ?? 0) + row.poolCount
+			return ALL_PROTOCOLS.map((name) => ({
+				name,
+				value: byProtocol[name] ?? 0,
+			})).filter((d) => d.value > 0)
+		}
+		return distributionRows.map((row) => ({
+			name: row.protocol,
+			value: row.poolCount,
 		})).filter((d) => d.value > 0)
 	})
 
@@ -166,9 +173,9 @@
 <div class="p-6">
 	<PageHeader title="Dashboard" subtitle={chainLabel} />
 
-	{#if metricsQuery.isLoading || poolsQuery.isLoading}
+	{#if metricsQuery.isLoading || distributionQuery.isLoading}
 		<p class="text-sm" style="color: var(--color-muted);">Loading stats…</p>
-	{:else if metricsQuery.isError || poolsQuery.isError}
+	{:else if metricsQuery.isError || distributionQuery.isError}
 		<p class="text-sm text-red-400">
 			Failed to load stats. Is the indexer running?
 		</p>
@@ -196,7 +203,7 @@
 				>
 					Pools Count By Protocol
 				</h2>
-				{#if poolsQuery.isLoading}
+				{#if distributionQuery.isLoading}
 					<p class="text-sm" style="color: var(--color-muted);">
 						Loading…
 					</p>
@@ -215,7 +222,7 @@
 				>
 					Pool Count per Protocol
 				</h2>
-				{#if poolsQuery.isLoading}
+				{#if distributionQuery.isLoading}
 					<p class="text-sm" style="color: var(--color-muted);">
 						Loading…
 					</p>
