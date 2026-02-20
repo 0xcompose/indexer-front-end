@@ -5,7 +5,10 @@ export type DexProtocol =
 	| "PancakeSwapInfinity"
 	| "AlgebraIntegral"
 	| "Curve"
+	| "BalancerV2"
 	| "BalancerV3"
+	| "VelodromeSlipstreamCL"
+	| "VelodromeCPMM"
 
 export const ALL_PROTOCOLS: DexProtocol[] = [
 	"UniswapV2",
@@ -14,7 +17,10 @@ export const ALL_PROTOCOLS: DexProtocol[] = [
 	"PancakeSwapInfinity",
 	"AlgebraIntegral",
 	"Curve",
+	"BalancerV2",
 	"BalancerV3",
+	"VelodromeSlipstreamCL",
+	"VelodromeCPMM",
 ]
 
 export interface Token {

@@ -25,7 +25,10 @@
 		PancakeSwapInfinity: "#1fc7d4",
 		AlgebraIntegral: "#f0b90b",
 		Curve: "#d62728",
+		BalancerV2: "#1e88e5",
 		BalancerV3: "#1e90ff",
+		VelodromeSlipstreamCL: "#00d4aa",
+		VelodromeCPMM: "#f93d82",
 	}
 
 	const DEBUG = true
