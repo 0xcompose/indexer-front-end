@@ -36,11 +36,17 @@
 	const chainMetricsQuery = createQuery(() => {
 		const chainId = chainStore.selected
 		const token = tokenFilter.trim()
-		if (token.length >= 10) return { queryKey: ["chain-metrics-skip"], queryFn: () => null, enabled: false }
+		if (token.length >= 10)
+			return {
+				queryKey: ["chain-metrics-skip"],
+				queryFn: () => null,
+				enabled: false,
+			}
 		if (chainId !== null) {
 			return {
 				queryKey: ["chain-metrics", chainId],
-				queryFn: () => gqlClient.request(CHAIN_METRICS_BY_CHAIN, { chainId }),
+				queryFn: () =>
+					gqlClient.request(CHAIN_METRICS_BY_CHAIN, { chainId }),
 			}
 		}
 		return {
@@ -54,33 +60,47 @@
 		const data = chainMetricsQuery.data as any
 		if (!data?.ChainMetrics?.length) return null
 		const metrics = data.ChainMetrics
-		return metrics.length === 1 ? metrics[0].totalPools : metrics.reduce((s: number, m: any) => s + m.totalPools, 0)
+		return metrics.length === 1
+			? metrics[0].totalPools
+			: metrics.reduce((s: number, m: any) => s + m.totalPools, 0)
 	})
 
-	type DistributionRow = { chainId: number; protocol: DexProtocol; poolCount: number }
+	type DistributionRow = {
+		chainId: number
+		protocol: DexProtocol
+		poolCount: number
+	}
 	const distributionQuery = createQuery(() => {
 		const chainId = chainStore.selected
 		if (chainId !== null) {
 			return {
 				queryKey: ["pools-protocol-distribution", chainId],
-				queryFn: () => gqlClient.request(POOLS_PROTOCOL_DISTRIBUTION_BY_CHAIN, { chainId }),
+				queryFn: () =>
+					gqlClient.request(POOLS_PROTOCOL_DISTRIBUTION_BY_CHAIN, {
+						chainId,
+					}),
 			}
 		}
 		return {
 			queryKey: ["pools-protocol-distribution-all"],
-			queryFn: () => gqlClient.request(POOLS_PROTOCOL_DISTRIBUTION_ALL_CHAINS),
+			queryFn: () =>
+				gqlClient.request(POOLS_PROTOCOL_DISTRIBUTION_ALL_CHAINS),
 		}
 	})
 
 	const distributionRows = $derived(
-		(distributionQuery.data as { PoolsProtocolDistributionMetrics?: DistributionRow[] })
-			?.PoolsProtocolDistributionMetrics ?? [],
+		(
+			distributionQuery.data as {
+				PoolsProtocolDistributionMetrics?: DistributionRow[]
+			}
+		)?.PoolsProtocolDistributionMetrics ?? [],
 	)
 
 	const availableProtocols = $derived.by(() => {
 		const byProtocol: Record<string, number> = {}
 		for (const row of distributionRows) {
-			byProtocol[row.protocol] = (byProtocol[row.protocol] ?? 0) + row.poolCount
+			byProtocol[row.protocol] =
+				(byProtocol[row.protocol] ?? 0) + row.poolCount
 		}
 		return Object.entries(byProtocol)
 			.toSorted(([, a], [, b]) => b - a)
@@ -156,45 +176,56 @@
 		}
 	})
 
-	// Accumulate pages
+	// Reset offset and list when chain/filters change only (not on mount) to avoid clearing during quick nav
+	const contextKey = () =>
+		`${chainStore.selected ?? "all"}-${protocolFilter ?? "all"}-${tokenFilter.trim()}`
+	let prevKey = $state<undefined | string>(undefined)
 	$effect(() => {
-		const data = poolsQuery.data as any
-		if (!data) return
-		untrack(() => {
-			let incoming: PoolWithTokens[] = []
-			if (data.PoolToken) {
-				incoming = data.PoolToken.map(
-					(pt: any) => pt.pool as PoolWithTokens,
-				)
-			} else {
-				incoming = data.Pool ?? []
-			}
-			lastPageSize = incoming.length
-			if (offset === 0) {
-				allPools = incoming
-			} else {
-				const ids = new Set(allPools.map((p) => p.id))
-				allPools = [
-					...allPools,
-					...incoming.filter((p) => !ids.has(p.id)),
-				]
-			}
-		})
+		const key = contextKey()
+		const prev = prevKey
+		prevKey = key
+		if (prev !== undefined && prev !== key) {
+			untrack(() => {
+				offset = 0
+				allPools = []
+			})
+		}
 	})
 
-	// Reset on filter/chain change
+	// Accumulate pages — drive allPools only from query data so no race with reset
+	let lastPageSize = $state(0)
 	$effect(() => {
-		chainStore.selected
-		protocolFilter
-		tokenFilter
-		untrack(() => {
-			offset = 0
-			allPools = []
-		})
+		const data = poolsQuery.data as
+			| {
+					Pool?: PoolWithTokens[]
+					PoolToken?: { pool: PoolWithTokens }[]
+			  }
+			| undefined
+		const currentOffset = offset
+		let incoming: PoolWithTokens[] = []
+		if (data?.PoolToken?.length) {
+			incoming = data.PoolToken.map((pt) => pt.pool)
+		} else if (data?.Pool?.length) {
+			incoming = data.Pool
+		}
+		if (currentOffset === 0) {
+			untrack(() => {
+				lastPageSize = incoming.length
+				allPools = incoming
+			})
+		} else if (incoming.length) {
+			untrack(() => {
+				lastPageSize = incoming.length
+				const existingIds = new Set(allPools.map((p) => p.id))
+				allPools = [
+					...allPools,
+					...incoming.filter((p) => !existingIds.has(p.id)),
+				]
+			})
+		}
 	})
 
 	// No aggregate available — hasMore is true while last page was full
-	let lastPageSize = $state(0)
 	const hasMore = $derived(
 		lastPageSize >= PAGE_SIZE && tokenFilter.trim().length < 10,
 	)
@@ -227,8 +258,8 @@
 	<PageHeader
 		title="Pool Explorer"
 		subtitle={totalPools != null
-			? `${allPools.length.toLocaleString()} of ${totalPools.toLocaleString()} pools${hasMore ? ' loaded' : ''}`
-			: `${allPools.length.toLocaleString()}${hasMore ? '+' : ''} pools loaded`}
+			? `${allPools.length.toLocaleString()} of ${totalPools.toLocaleString()} pools${hasMore ? " loaded" : ""}`
+			: `${allPools.length.toLocaleString()}${hasMore ? "+" : ""} pools loaded`}
 	/>
 
 	<div class="mb-4 flex flex-wrap gap-3">
