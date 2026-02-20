@@ -10,10 +10,11 @@
 		POOLS_BY_TOKEN,
 		CHAIN_METRICS_BY_CHAIN,
 		CHAIN_METRICS_ALL,
+		POOLS_PROTOCOL_DISTRIBUTION_BY_CHAIN,
+		POOLS_PROTOCOL_DISTRIBUTION_ALL_CHAINS,
 	} from "$lib/graphql/queries"
 	import { chainStore } from "$lib/stores/chain.svelte"
 	import { chainlistStore } from "$lib/stores/chainlist.svelte"
-	import { ALL_PROTOCOLS } from "$lib/graphql/types"
 	import type { DexProtocol, PoolWithTokens } from "$lib/graphql/types"
 	import ProtocolBadge from "$lib/components/ui/ProtocolBadge.svelte"
 	import AddressCell from "$lib/components/ui/AddressCell.svelte"
@@ -54,6 +55,36 @@
 		if (!data?.ChainMetrics?.length) return null
 		const metrics = data.ChainMetrics
 		return metrics.length === 1 ? metrics[0].totalPools : metrics.reduce((s: number, m: any) => s + m.totalPools, 0)
+	})
+
+	type DistributionRow = { chainId: number; protocol: DexProtocol; poolCount: number }
+	const distributionQuery = createQuery(() => {
+		const chainId = chainStore.selected
+		if (chainId !== null) {
+			return {
+				queryKey: ["pools-protocol-distribution", chainId],
+				queryFn: () => gqlClient.request(POOLS_PROTOCOL_DISTRIBUTION_BY_CHAIN, { chainId }),
+			}
+		}
+		return {
+			queryKey: ["pools-protocol-distribution-all"],
+			queryFn: () => gqlClient.request(POOLS_PROTOCOL_DISTRIBUTION_ALL_CHAINS),
+		}
+	})
+
+	const distributionRows = $derived(
+		(distributionQuery.data as { PoolsProtocolDistributionMetrics?: DistributionRow[] })
+			?.PoolsProtocolDistributionMetrics ?? [],
+	)
+
+	const availableProtocols = $derived.by(() => {
+		const byProtocol: Record<string, number> = {}
+		for (const row of distributionRows) {
+			byProtocol[row.protocol] = (byProtocol[row.protocol] ?? 0) + row.poolCount
+		}
+		return Object.entries(byProtocol)
+			.toSorted(([, a], [, b]) => b - a)
+			.map(([p]) => p as DexProtocol)
 	})
 
 	const poolsQuery = createQuery(() => {
@@ -219,7 +250,7 @@
 			bind:value={protocolFilter}
 		>
 			<option value={null}>All protocols</option>
-			{#each ALL_PROTOCOLS as p}
+			{#each availableProtocols as p}
 				<option value={p}>{p}</option>
 			{/each}
 		</select>
