@@ -2,7 +2,7 @@
 	import { createQuery } from "@tanstack/svelte-query"
 	import {
 		fetchTokenMetadata,
-		TOKEN_METADATA_RPC_URL,
+		getTokenMetadataRpcUrl,
 	} from "$lib/services/tokenMetadata"
 
 	let {
@@ -13,7 +13,7 @@
 	const metaQuery = createQuery(() => ({
 		queryKey: ["token-metadata", chainId, address.toLowerCase()],
 		queryFn: () => fetchTokenMetadata(chainId, address),
-		enabled: Boolean(TOKEN_METADATA_RPC_URL) && Boolean(address),
+		enabled: Boolean(getTokenMetadataRpcUrl()) && Boolean(address),
 		retry: false,
 		staleTime: 24 * 60 * 60 * 1000,
 	}))

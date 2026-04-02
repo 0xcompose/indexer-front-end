@@ -111,7 +111,18 @@ Set `PUBLIC_TOKEN_METADATA_RPC_URL` to enable human-readable token names and sym
 PUBLIC_TOKEN_METADATA_RPC_URL=http://localhost:3001
 ```
 
-The app calls `eth_getTokenMetadata` (JSON-RPC 2.0) per token address. When the service is unreachable or returns an error, the UI silently falls back to displaying the raw address — nothing breaks. Metadata is cached in TanStack Query with a 24-hour stale time so repeated navigation does not re-fetch.
+**Local dev and CORS:** the browser always sends `Origin` on cross-origin `fetch`; relaxing CORS on the API is not always enough. For `npm run dev`, point Vite at your token API and use a same-origin proxy path:
+
+```
+PUBLIC_TOKEN_METADATA_USE_DEV_PROXY=true
+TOKEN_METADATA_PROXY_TARGET=http://127.0.0.1:7777/rpc
+```
+
+Use a full URL: **origin** (scheme + host + port) and optional **path** (e.g. `/rpc`). Vite proxies to `origin` only and rewrites the browser path to your path — `TOKEN_METADATA_PROXY_TARGET=http://127.0.0.1:7777/rpc` maps `POST /__token-metadata__` → `POST http://127.0.0.1:7777/rpc`. A target with no path (e.g. `http://127.0.0.1:3001`) maps to `/` on that host.
+
+(`TOKEN_METADATA_PROXY_TARGET` is read only by Vite, not exposed to the client.) Production and `npm run preview` keep using `PUBLIC_TOKEN_METADATA_RPC_URL` as usual.
+
+The app calls `eth_getTokenMetadata` (JSON-RPC 2.0) per token address. In the browser, requests are **coalesced** (short delay, deduped by chain + address) and sent as **JSON-RPC batch arrays** when several tokens are needed at once (up to 100 calls per HTTP request). The RPC server must accept a JSON array of requests and return an array of results, per the JSON-RPC 2.0 batch spec. If the response is not an array, the client falls back to one request per token for that round. When the service is unreachable or returns an error, the UI silently falls back to displaying the raw address — nothing breaks. Metadata is cached in TanStack Query with a 24-hour stale time so repeated navigation does not re-fetch.
 
 **Display behaviour when metadata is available:**
 - Token addresses in pool rows and modals show `Name (SYMBOL) 0xabcd…1234` instead of just the address.
