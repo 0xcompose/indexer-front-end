@@ -18,6 +18,7 @@
 	import type { DexProtocol, PoolWithTokens } from "$lib/graphql/types"
 	import ProtocolBadge from "$lib/components/ui/ProtocolBadge.svelte"
 	import AddressCell from "$lib/components/ui/AddressCell.svelte"
+	import TokenAddressCell from "$lib/components/ui/TokenAddressCell.svelte"
 	import SearchInput from "$lib/components/ui/SearchInput.svelte"
 	import LoadMore from "$lib/components/ui/LoadMore.svelte"
 	import Modal from "$lib/components/ui/Modal.svelte"
@@ -339,7 +340,8 @@
 							<td class="px-4 py-2.5">
 								<div class="flex flex-wrap gap-1">
 									{#each pool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt}
-										<AddressCell
+										<TokenAddressCell
+											chainId={pt.token.chainId}
 											address={pt.token.address}
 										/>
 									{/each}
@@ -426,7 +428,8 @@
 							>
 								{pt.tokenIndex}
 							</span>
-							<AddressCell
+							<TokenAddressCell
+								chainId={pt.token.chainId}
 								address={pt.token.address}
 								short={false}
 							/>

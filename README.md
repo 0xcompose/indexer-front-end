@@ -103,6 +103,28 @@ The default endpoint is `http://localhost:8080/v1/graphql`. Override it via:
 PUBLIC_GRAPHQL_URL=http://localhost:8080/v1/graphql
 ```
 
+### Token metadata enrichment (optional)
+
+Set `PUBLIC_TOKEN_METADATA_RPC_URL` to enable human-readable token names and symbols across the UI:
+
+```
+PUBLIC_TOKEN_METADATA_RPC_URL=http://localhost:3001
+```
+
+The app calls `eth_getTokenMetadata` (JSON-RPC 2.0) per token address. When the service is unreachable or returns an error, the UI silently falls back to displaying the raw address — nothing breaks. Metadata is cached in TanStack Query with a 24-hour stale time so repeated navigation does not re-fetch.
+
+**Display behaviour when metadata is available:**
+- Token addresses in pool rows and modals show `Name (SYMBOL) 0xabcd…1234` instead of just the address.
+- The Token Explorer table gains a **Metadata** column (first column) showing `Name (Symbol)`, or `—` when not available.
+
+**Docker:**
+```bash
+docker run -d --name pool-explorer \
+  -e PUBLIC_GRAPHQL_URL=http://your-indexer:8080/v1/graphql \
+  -e PUBLIC_TOKEN_METADATA_RPC_URL=http://your-token-api:3001 \
+  -p 8088:80 pool-explorer-frontend:local
+```
+
 ## Build
 
 ```bash

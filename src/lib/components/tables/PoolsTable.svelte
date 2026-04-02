@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ProtocolBadge from "$lib/components/ui/ProtocolBadge.svelte"
 	import AddressCell from "$lib/components/ui/AddressCell.svelte"
+	import TokenAddressCell from "$lib/components/ui/TokenAddressCell.svelte"
 	import { chainlistStore } from "$lib/stores/chainlist.svelte"
 	import type { PoolWithTokens } from "$lib/graphql/types"
 
@@ -65,11 +66,14 @@
 						{chainName(pool.chainId)}
 					</td>
 					<td class="px-4 py-2.5">
-						<div class="flex flex-wrap gap-1">
-							{#each pool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt}
-								<AddressCell address={pt.token.address} />
-							{/each}
-						</div>
+					<div class="flex flex-wrap gap-1">
+						{#each pool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt}
+							<TokenAddressCell
+								chainId={pt.token.chainId}
+								address={pt.token.address}
+							/>
+						{/each}
+					</div>
 					</td>
 				</tr>
 			{/each}

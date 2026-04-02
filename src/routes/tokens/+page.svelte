@@ -13,6 +13,8 @@
 	import { chainlistStore } from "$lib/stores/chainlist.svelte"
 	import SearchInput from "$lib/components/ui/SearchInput.svelte"
 	import AddressCell from "$lib/components/ui/AddressCell.svelte"
+	import TokenAddressCell from "$lib/components/ui/TokenAddressCell.svelte"
+	import TokenMetadataCell from "$lib/components/ui/TokenMetadataCell.svelte"
 	import ProtocolBadge from "$lib/components/ui/ProtocolBadge.svelte"
 	import LoadMore from "$lib/components/ui/LoadMore.svelte"
 	import Modal from "$lib/components/ui/Modal.svelte"
@@ -175,6 +177,10 @@
 					<tr style="border-bottom: 1px solid var(--color-border);">
 						<th
 							class="px-4 py-2 text-left font-medium"
+							style="color: var(--color-muted);">Metadata</th
+						>
+						<th
+							class="px-4 py-2 text-left font-medium"
 							style="color: var(--color-muted);">Address</th
 						>
 						<th
@@ -198,6 +204,12 @@
 							style="border-bottom: 1px solid var(--color-border)22;"
 							onclick={() => openToken(token)}
 						>
+							<td class="px-4 py-2.5 text-sm"
+								><TokenMetadataCell
+									chainId={token.chainId}
+									address={token.address}
+								/></td
+							>
 							<td class="px-4 py-2.5"
 								><AddressCell address={token.address} /></td
 							>
@@ -262,7 +274,10 @@
 					</div>
 					<div class="flex flex-wrap gap-1">
 						{#each pool.poolTokens.toSorted((a: PoolToken, b: PoolToken) => a.tokenIndex - b.tokenIndex) as pt}
-							<AddressCell address={pt.token.address} />
+							<TokenAddressCell
+								chainId={pt.token.chainId}
+								address={pt.token.address}
+							/>
 						{/each}
 					</div>
 				</div>
