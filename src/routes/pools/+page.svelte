@@ -24,7 +24,7 @@
 	import Modal from "$lib/components/ui/Modal.svelte"
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
 
-	const PAGE_SIZE = 1000
+	const PAGE_SIZE = 200
 
 	let search = $state("")
 	let tokenFilter = $state("")

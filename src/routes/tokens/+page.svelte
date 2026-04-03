@@ -21,7 +21,7 @@
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
 	import type { Token, PoolToken, PoolWithTokens } from "$lib/graphql/types"
 
-	const PAGE_SIZE = 1000
+	const PAGE_SIZE = 200
 
 	let search = $state("")
 	let offset = $state(0)
