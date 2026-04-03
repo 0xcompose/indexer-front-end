@@ -13,6 +13,10 @@ COPY src ./src
 ARG PUBLIC_GRAPHQL_URL=http://localhost:8080/v1/graphql
 ENV PUBLIC_GRAPHQL_URL=$PUBLIC_GRAPHQL_URL
 
+# Same-origin path proxied by nginx to token-api (docker compose); leave unset for static deploys without token-api.
+ARG PUBLIC_TOKEN_METADATA_RPC_URL=
+ENV PUBLIC_TOKEN_METADATA_RPC_URL=$PUBLIC_TOKEN_METADATA_RPC_URL
+
 RUN npm run build
 
 FROM nginx:1.27-alpine AS runner
