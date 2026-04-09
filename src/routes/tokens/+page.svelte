@@ -19,7 +19,19 @@
 	import LoadMore from "$lib/components/ui/LoadMore.svelte"
 	import Modal from "$lib/components/ui/Modal.svelte"
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
-	import type { Token, PoolToken, PoolWithTokens } from "$lib/graphql/types"
+	import type {
+		Token,
+		PoolWithTokens,
+		TokenMetadata,
+	} from "$lib/graphql/types"
+
+	type PoolTokenInPool = PoolWithTokens["poolTokens"][number]
+	import { fetchTokenMetadata } from "$lib/services/tokenMetadata"
+	import {
+		shouldSkipPoolReserves,
+		fetchTokenBalanceOfHoldersMulticall,
+		formatTokenAmount,
+	} from "$lib/services/poolTokenBalances"
 
 	const PAGE_SIZE = 200
 
@@ -135,11 +147,128 @@
 		enabled: selectedToken !== null,
 	}))
 
-	const tokenPools = $derived(
-		((tokenPoolsQuery.data as any)?.PoolToken ?? []).map(
-			(pt: any) => pt.pool as PoolWithTokens,
-		),
+	const tokenPools = $derived.by((): PoolWithTokens[] => {
+		const rows = (
+			tokenPoolsQuery.data as { PoolToken?: { pool: PoolWithTokens }[] }
+		)?.PoolToken
+		return (rows ?? []).map((pt) => pt.pool)
+	})
+
+	const poolReservesQueryFingerprint = $derived.by(() =>
+		tokenPools
+			.map((p) => {
+				const toks = [...p.poolTokens]
+					.toSorted(
+						(a: PoolTokenInPool, b: PoolTokenInPool) =>
+							a.tokenIndex - b.tokenIndex,
+					)
+					.map((pt) => pt.token.address.toLowerCase())
+					.join(",")
+				return `${p.address.toLowerCase()}:${p.protocol}:${toks}`
+			})
+			.toSorted(),
 	)
+
+	const poolReservesEligibleCount = $derived(
+		tokenPools.filter((p) => !shouldSkipPoolReserves(p.protocol)).length,
+	)
+
+	const poolBalancesQuery = createQuery(() => {
+		const token = selectedToken
+		const open = modalOpen
+		const fingerprint = poolReservesQueryFingerprint.join("|")
+		const pools = tokenPools
+		const poolsReady =
+			!tokenPoolsQuery.isLoading && tokenPoolsQuery.isSuccess
+		const eligibleCount = poolReservesEligibleCount
+
+		return {
+			queryKey: ["pool-token-balances", token?.id, fingerprint] as const,
+			queryFn: async () => {
+				if (!token) throw new Error("no token")
+				const rpcs = chainlistStore.getRpcUrls(token.chainId)
+				if (!rpcs.length)
+					throw new Error("No RPC URL for this chain in chainlist")
+
+				const eligible = pools.filter(
+					(p) => !shouldSkipPoolReserves(p.protocol),
+				)
+				if (eligible.length === 0) {
+					return {
+						metaByToken: new Map<string, TokenMetadata>(),
+						balancesByPool: new Map<string, Map<string, bigint>>(),
+					}
+				}
+
+				const tokenAddrsLower = new Set<string>()
+				for (const p of eligible) {
+					for (const pt of p.poolTokens) {
+						tokenAddrsLower.add(pt.token.address.toLowerCase())
+					}
+				}
+
+				const metaByToken = new Map<string, TokenMetadata>()
+				await Promise.all(
+					[...tokenAddrsLower].map(async (low) => {
+						const sample =
+							eligible
+								.flatMap((p) => p.poolTokens)
+								.find(
+									(pt) =>
+										pt.token.address.toLowerCase() === low,
+								)?.token.address ?? low
+						const meta = await fetchTokenMetadata(
+							token.chainId,
+							sample,
+						)
+						metaByToken.set(low, meta)
+					}),
+				)
+
+				const calls = eligible.flatMap((p) =>
+					[...p.poolTokens]
+						.toSorted(
+							(a: PoolTokenInPool, b: PoolTokenInPool) =>
+								a.tokenIndex - b.tokenIndex,
+						)
+						.map((pt) => ({
+							tokenAddress: pt.token.address,
+							holderAddress: p.address,
+						})),
+				)
+
+				const flat = await fetchTokenBalanceOfHoldersMulticall(
+					token.chainId,
+					rpcs,
+					calls,
+				)
+
+				const balancesByPool = new Map<string, Map<string, bigint>>()
+				let i = 0
+				for (const p of eligible) {
+					const pk = p.address.toLowerCase()
+					let inner = balancesByPool.get(pk)
+					if (!inner) {
+						inner = new Map()
+						balancesByPool.set(pk, inner)
+					}
+					const sorted = [...p.poolTokens].toSorted(
+						(a: PoolTokenInPool, b: PoolTokenInPool) =>
+							a.tokenIndex - b.tokenIndex,
+					)
+					for (const pt of sorted) {
+						const bal = flat[i++]
+						if (bal !== null)
+							inner.set(pt.token.address.toLowerCase(), bal)
+					}
+				}
+
+				return { metaByToken, balancesByPool }
+			},
+			enabled: open && token !== null && poolsReady && eligibleCount > 0,
+			staleTime: 15_000,
+		}
+	})
 
 	function openToken(token: Token) {
 		selectedToken = token
@@ -268,12 +397,56 @@
 					class="rounded-lg border p-3"
 					style="border-color: var(--color-border); background: var(--color-bg);"
 				>
-					<div class="mb-1 flex items-center gap-2">
+					<div class="mb-1 flex flex-wrap items-start gap-2">
 						<AddressCell address={pool.address} short={false} />
 						<ProtocolBadge protocol={pool.protocol} />
+						<div
+							class="ml-auto flex flex-col items-end gap-0.5 text-xs tabular-nums"
+							style="color: var(--color-muted);"
+						>
+							{#if shouldSkipPoolReserves(pool.protocol)}
+								<span
+									title="ERC20 balanceOf the pool address is skipped for Balancer, Uniswap v4, and PancakeSwap Infinity (vault or singleton architecture)."
+									>N/A</span
+								>
+							{:else if poolBalancesQuery.isPending}
+								<span>Reserves…</span>
+							{:else if poolBalancesQuery.isError}
+								<span>—</span>
+							{:else if poolBalancesQuery.data}
+								{#each pool.poolTokens.toSorted((a: PoolTokenInPool, b: PoolTokenInPool) => a.tokenIndex - b.tokenIndex) as pt}
+									{@const meta =
+										poolBalancesQuery.data.metaByToken.get(
+											pt.token.address.toLowerCase(),
+										)}
+									{@const bal =
+										poolBalancesQuery.data.balancesByPool
+											.get(pool.address.toLowerCase())
+											?.get(
+												pt.token.address.toLowerCase(),
+											)}
+									<span
+										title="{meta?.symbol ??
+											'token'} balance held by pool"
+									>
+										{#if meta === undefined || bal === undefined}
+											—
+										{:else}
+											{formatTokenAmount(
+												bal,
+												meta.decimals,
+											)}
+											{meta.symbol}
+										{/if}
+									</span>
+								{/each}
+							{:else}
+								<span>—</span>
+							{/if}
+						</div>
 					</div>
 					<div class="flex flex-wrap gap-1">
-						{#each pool.poolTokens.toSorted((a: PoolToken, b: PoolToken) => a.tokenIndex - b.tokenIndex) as pt}
+						{#each pool.poolTokens.toSorted((a: PoolTokenInPool, b: PoolTokenInPool) => a.tokenIndex - b.tokenIndex) as pt}
 							<TokenAddressCell
 								chainId={pt.token.chainId}
 								address={pt.token.address}
