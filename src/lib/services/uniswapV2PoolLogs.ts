@@ -6,66 +6,29 @@ import {
 	type Address,
 	type PublicClient,
 } from "viem"
-import { getBlockNumber, getContractEvents } from "viem/actions"
+import { getBlockNumber, getContractEvents, getBlock } from "viem/actions"
 import { uniswapV2PairEventsAbi } from "$lib/abis/uniswapV2Pair"
 import { chainForRpc } from "$lib/services/viemChain"
 
 /** Max block span per `eth_getLogs` request (many RPCs cap ~10k). */
 const LOG_CHUNK_BLOCKS = 9_000n
 
-/** Calendar month used for “~30d” scan windows (seconds). */
+/** History window: blocks whose timestamp is at or after (now − this many seconds). */
 const SECONDS_PER_MONTH = 30 * 24 * 60 * 60
 
 /**
- * Heuristic mean block time (seconds). Extend for chains you care about; unknown
- * chains default to L1-like 12s (~216k blocks/month).
+ * Step backward in block number while probing timestamps; then binary-search the
+ * exact month boundary. Keeps RPC calls modest on average.
  */
-const CHAIN_AVG_BLOCK_TIME_SEC: Record<number, number> = {
-	1: 12,
-	5: 12,
-	11155111: 12,
-	17000: 12,
-	42161: 0.25,
-	421614: 0.25,
-	137: 2,
-	8453: 2,
-	84532: 2,
-	10: 2,
-	11155420: 2,
-	56: 3,
-	97: 3,
-	43114: 2,
-	324: 1,
-	1101: 0.25,
-	59140: 2,
-	59144: 2,
-	100: 5,
-}
+const TIMESTAMP_PROBE_BATCH_BLOCKS = 100_000n
 
-const DEFAULT_BLOCK_TIME_SEC = 12
+const MAX_MONTH_PROBE_STEPS = 400
 
 /**
- * Hard cap on scan width (blocks). Fast L2s need ~10M+ blocks for a true month;
- * this avoids runaway ranges if block time is mis-estimated.
+ * Safety: never scan more than this many blocks even if timestamps disagree (bad
+ * RPC clock etc.).
  */
 const MAX_LOG_SCAN_WINDOW_BLOCKS = 12_000_000n
-
-function avgBlockTimeSec(chainId: number): number {
-	return CHAIN_AVG_BLOCK_TIME_SEC[chainId] ?? DEFAULT_BLOCK_TIME_SEC
-}
-
-/**
- * Blocks to scan back from head for roughly one month on this chain
- * (~30d / avg block time), capped.
- */
-export function recentWindowBlocksForChain(chainId: number): bigint {
-	const t = avgBlockTimeSec(chainId)
-	const raw = Math.ceil(SECONDS_PER_MONTH / t)
-	let n = BigInt(raw)
-	if (n > MAX_LOG_SCAN_WINDOW_BLOCKS) n = MAX_LOG_SCAN_WINDOW_BLOCKS
-	if (n < 1n) n = 1n
-	return n
-}
 
 /** Max rows returned to the UI after merge/sort. */
 export const V2_POOL_EVENTS_LIMIT = 30
@@ -99,20 +62,89 @@ function toBigIntBlock(v: unknown): bigint {
 	}
 }
 
+async function blockTimestamp(
+	client: PublicClient,
+	blockNumber: bigint,
+): Promise<bigint> {
+	const b = await getBlock(client, {
+		blockNumber,
+		includeTransactions: false,
+	})
+	return b.timestamp
+}
+
 /**
- * `createdAtBlock` from indexer. If 0, only the per-chain month window from head
- * is scanned.
+ * Smallest block number in [low, high] whose timestamp is >= targetTs.
+ * Precondition: timestamp(high) >= targetTs, and if low > 0 then timestamp(low - 1n) < targetTs.
  */
-export function poolCreatedAtToFromBlock(
-	createdAtBlock: unknown,
+async function lowerBoundBlockByTimestamp(
+	client: PublicClient,
+	targetTs: bigint,
+	low: bigint,
+	high: bigint,
+): Promise<bigint> {
+	let lo = low
+	let hi = high
+	while (lo < hi) {
+		const mid = (lo + hi) / 2n
+		const ts = await blockTimestamp(client, mid)
+		if (ts >= targetTs) hi = mid
+		else lo = mid + 1n
+	}
+	return lo
+}
+
+/**
+ * First block (from genesis upward) that is still within the rolling calendar
+ * month window — i.e. oldest block we include when scanning “~30d” of history.
+ */
+async function findMonthFloorBlock(
+	client: PublicClient,
 	head: bigint,
-	chainId: number,
+): Promise<bigint> {
+	const targetTs = BigInt(Math.floor(Date.now() / 1000) - SECONDS_PER_MONTH)
+
+	const headTs = await blockTimestamp(client, head)
+	if (headTs < targetTs) return head
+
+	let young = head
+	for (let step = 0; step < MAX_MONTH_PROBE_STEPS; step++) {
+		const next =
+			young > TIMESTAMP_PROBE_BATCH_BLOCKS
+				? young - TIMESTAMP_PROBE_BATCH_BLOCKS
+				: 0n
+		if (next === young) return 0n
+		const ts = await blockTimestamp(client, next)
+		if (ts < targetTs) {
+			return lowerBoundBlockByTimestamp(
+				client,
+				targetTs,
+				next + 1n,
+				young,
+			)
+		}
+		young = next
+		if (next === 0n) return 0n
+	}
+
+	return 0n
+}
+
+function applyCreatedAtFloor(
+	createdAtBlock: unknown,
+	monthFloor: bigint,
+	head: bigint,
 ): bigint {
-	const window = recentWindowBlocksForChain(chainId)
 	const c = toBigIntBlock(createdAtBlock)
-	if (c <= 0n) return head > window ? head - window : 0n
-	const windowStart = head > window ? head - window : 0n
-	return c > windowStart ? c : windowStart
+	const floor = monthFloor > head ? 0n : monthFloor
+	if (c <= 0n) return floor
+	return c > floor ? c : floor
+}
+
+function capScanFromBlock(fromBlock: bigint, head: bigint): bigint {
+	if (head <= MAX_LOG_SCAN_WINDOW_BLOCKS) return fromBlock
+	const minAllowed = head - MAX_LOG_SCAN_WINDOW_BLOCKS
+	return fromBlock < minAllowed ? minAllowed : fromBlock
 }
 
 function shortAmt(n: bigint): string {
@@ -187,7 +219,7 @@ function rowFromLog(log: {
 
 /**
  * Latest Swap / Mint / Burn logs for a V2 pair via RPC (on-demand).
- * Scans from `max(createdAtBlock, head − recentWindowBlocksForChain(chainId))` through head, chunked.
+ * Lower bound ≈ rolling calendar month from block timestamps (not fixed block count).
  */
 export async function fetchUniswapV2PoolRecentEvents(params: {
 	chainId: number
@@ -212,10 +244,12 @@ export async function fetchUniswapV2PoolRecentEvents(params: {
 			})
 
 			const head = await getBlockNumber(client)
-			const fromBlock = poolCreatedAtToFromBlock(
+			let monthFloor = await findMonthFloorBlock(client, head)
+			monthFloor = capScanFromBlock(monthFloor, head)
+			const fromBlock = applyCreatedAtFloor(
 				params.createdAtBlock,
+				monthFloor,
 				head,
-				params.chainId,
 			)
 
 			const [swaps, mints, burns] = await Promise.all([
