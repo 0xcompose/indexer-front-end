@@ -16,6 +16,12 @@
 	import { chainStore } from "$lib/stores/chain.svelte"
 	import { chainlistStore } from "$lib/stores/chainlist.svelte"
 	import type { DexProtocol, PoolWithTokens } from "$lib/graphql/types"
+	import {
+		poolConnectivityScore,
+		poolMinTokenPoolCount,
+		poolTokenReachMinMax,
+		formatCompactInt,
+	} from "$lib/utils/poolRanking"
 	import ProtocolBadge from "$lib/components/ui/ProtocolBadge.svelte"
 	import AddressCell from "$lib/components/ui/AddressCell.svelte"
 	import TokenAddressCell from "$lib/components/ui/TokenAddressCell.svelte"
@@ -23,12 +29,17 @@
 	import LoadMore from "$lib/components/ui/LoadMore.svelte"
 	import Modal from "$lib/components/ui/Modal.svelte"
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
+	import PoolModalV2Events from "$lib/components/pools/PoolModalV2Events.svelte"
 
 	const PAGE_SIZE = 200
 
 	let search = $state("")
 	let tokenFilter = $state("")
 	let protocolFilter = $state<DexProtocol | null>(null)
+	type PoolSortMode = "address" | "connectivity"
+	let poolSortMode = $state<PoolSortMode>("connectivity")
+	/** Min indexer `poolCount` per token; drops pairs with an obscure leg */
+	let minTokenPoolReach = $state(0)
 	let offset = $state(0)
 	let allPools = $state<PoolWithTokens[]>([])
 	let selectedPool = $state<PoolWithTokens | null>(null)
@@ -237,13 +248,27 @@
 		}
 	}
 
-	const filtered = $derived(
-		search
+	const filtered = $derived.by(() => {
+		let list = search
 			? allPools.filter((p) =>
 					p.address.toLowerCase().includes(search.toLowerCase()),
 				)
-			: allPools,
-	)
+			: allPools
+
+		const minReach = Math.max(0, Math.floor(Number(minTokenPoolReach) || 0))
+		if (minReach > 0) {
+			list = list.filter((p) => poolMinTokenPoolCount(p) >= minReach)
+		}
+
+		if (poolSortMode === "connectivity") {
+			list = [...list].toSorted((a, b) => {
+				const d = poolConnectivityScore(b) - poolConnectivityScore(a)
+				if (d !== 0) return d
+				return a.address.localeCompare(b.address)
+			})
+		}
+		return list
+	})
 
 	function openPool(pool: PoolWithTokens) {
 		selectedPool = pool
@@ -252,6 +277,17 @@
 
 	function chainName(id: number) {
 		return chainlistStore.getChainName(id)
+	}
+
+	function formatCreationBlock(
+		value: string | number | bigint | null | undefined,
+	): string {
+		if (value == null || value === "") return ""
+		try {
+			return BigInt(value).toLocaleString()
+		} catch {
+			return String(value)
+		}
 	}
 </script>
 
@@ -286,7 +322,32 @@
 				<option value={p}>{p}</option>
 			{/each}
 		</select>
+		<select
+			class="rounded-md border px-2 py-2 text-sm focus:outline-none"
+			style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+			bind:value={poolSortMode}
+		>
+			<option value="address">Sort: pool address</option>
+			<option value="connectivity">Sort: token connectivity</option>
+		</select>
+		<select
+			class="min-w-[12rem] rounded-md border px-2 py-2 text-sm focus:outline-none"
+			style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+			bind:value={minTokenPoolReach}
+		>
+			<option value={0}>Min token reach: any</option>
+			<option value={2}>Min token reach: ≥2 pools / token</option>
+			<option value={5}>Min token reach: ≥5</option>
+			<option value={10}>Min token reach: ≥10</option>
+			<option value={25}>Min token reach: ≥25</option>
+		</select>
 	</div>
+	<p class="mb-4 max-w-3xl text-[0.7rem] leading-snug" style="color: var(--color-muted);">
+		“Connectivity” uses each token’s indexed pool count (how many pools include that
+		token). It favors hub/routing pairs and hides dead-end legs without decoding
+		swaps. Sorting applies to loaded rows only; use Load more for a
+		wider slice, or sort in the indexer later for global order.
+	</p>
 
 	{#if poolsQuery.isError}
 		<p class="text-sm text-red-400">
@@ -314,12 +375,19 @@
 						>
 						<th
 							class="px-4 py-2 text-left font-medium"
+							style="color: var(--color-muted);"
+							title="Indexer poolCount per token (min–max)"
+							>Reach</th
+						>
+						<th
+							class="px-4 py-2 text-left font-medium"
 							style="color: var(--color-muted);">Tokens</th
 						>
 					</tr>
 				</thead>
 				<tbody>
 					{#each filtered as pool (pool.id)}
+						{@const reach = poolTokenReachMinMax(pool)}
 						<tr
 							class="cursor-pointer transition-colors hover:bg-white/5"
 							style="border-bottom: 1px solid var(--color-border)22;"
@@ -336,6 +404,13 @@
 								style="color: var(--color-muted);"
 							>
 								{chainName(pool.chainId)}
+							</td>
+							<td
+								class="px-4 py-2.5 font-mono text-xs tabular-nums"
+								style="color: var(--color-muted);"
+								title="Min–max poolCount among tokens in this pool"
+							>
+								{formatCompactInt(reach.min)}–{formatCompactInt(reach.max)}
 							</td>
 							<td class="px-4 py-2.5">
 								<div class="flex flex-wrap gap-1">
@@ -402,6 +477,24 @@
 					class="mb-1 text-xs font-medium uppercase"
 					style="color: var(--color-muted);"
 				>
+					Creation block
+				</p>
+				{#if selectedPool.createdAtBlock != null && selectedPool.createdAtBlock !== ""}
+					<span
+						class="font-mono tabular-nums"
+						style="color: var(--color-text);"
+					>
+						{formatCreationBlock(selectedPool.createdAtBlock)}
+					</span>
+				{:else}
+					<span style="color: var(--color-muted);">—</span>
+				{/if}
+			</div>
+			<div>
+				<p
+					class="mb-1 text-xs font-medium uppercase"
+					style="color: var(--color-muted);"
+				>
 					Creator Contract
 				</p>
 				<AddressCell
@@ -437,6 +530,8 @@
 					{/each}
 				</div>
 			</div>
+
+			<PoolModalV2Events pool={selectedPool} open={modalOpen} />
 		</div>
 	{/if}
 </Modal>
