@@ -39,9 +39,9 @@
 	onMount(async () => {
 		chainlistStore.load()
 		try {
-			const data = await gqlClient.request<{ _meta: { chainId: number }[] }>(
-				CHAINS_QUERY,
-			)
+			const data = await gqlClient.request<{
+				_meta: { chainId: number; progressBlock?: unknown }[]
+			}>(CHAINS_QUERY)
 			const ids = data._meta.map((m) => m.chainId)
 			chainStore.chains = ids
 			if (ids.length > 0 && chainStore.selected === null) {

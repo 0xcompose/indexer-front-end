@@ -4,6 +4,7 @@ export const CHAINS_QUERY = gql`
 	query Chains {
 		_meta {
 			chainId
+			progressBlock
 		}
 	}
 `
@@ -241,49 +242,6 @@ export const TOKEN_POOLS = gql`
 						id
 						address
 						chainId
-					}
-				}
-			}
-		}
-	}
-`
-
-export const GRAPH_SEED_TOKENS = gql`
-	query GraphSeedTokens($chainId: Int!, $limit: Int!) {
-		Token(
-			where: { chainId: { _eq: $chainId } }
-			limit: $limit
-			order_by: { address: asc }
-		) {
-			id
-			address
-			chainId
-			poolTokens {
-				pool {
-					id
-					address
-					poolTokens {
-						token {
-							id
-							address
-						}
-					}
-				}
-			}
-		}
-	}
-`
-
-export const GRAPH_EXPAND_TOKEN = gql`
-	query GraphExpandToken($tokenId: String!) {
-		PoolToken(where: { token_id: { _eq: $tokenId } }) {
-			pool {
-				id
-				address
-				poolTokens {
-					token {
-						id
-						address
 					}
 				}
 			}

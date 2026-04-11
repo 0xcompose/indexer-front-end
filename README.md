@@ -13,7 +13,7 @@ SvelteKit (static adapter, client-side only)
   ├── Dashboard      /          — aggregate stats + protocol charts
   ├── Pool Explorer  /pools     — filterable pool list + detail modal
   ├── Token Explorer /tokens    — filterable token list + pools modal
-  └── Network Graph  /graph     — force-directed token graph (Sigma.js)
+  └── Indexer status /status    — per-chain sync vs RPC head
 ```
 
 ## Data Model
@@ -42,7 +42,6 @@ Currently indexed chains: **Fuse (122)**, **Story (1514)**. Base, Ethereum, Arbi
 | Data fetching  | `@tanstack/svelte-query` v6             |
 | GraphQL client | `graphql-request`                       |
 | Charts         | ECharts (lazy loaded)                   |
-| Network graph  | Sigma.js + Graphology (lazy loaded)     |
 | Deployment     | GitHub Pages via GitHub Actions         |
 
 ## Features
@@ -68,14 +67,9 @@ Currently indexed chains: **Fuse (122)**, **Story (1514)**. Base, Ethereum, Arbi
 - Address search within loaded results
 - Click any token to see all pools it participates in (modal)
 
-### Network Graph (`/graph`)
+### Indexer status (`/status`)
 
-- Force-directed graph rendered via Sigma.js WebGL
-- Nodes = tokens, sized by pool connection count
-- Edges = pool connections between token pairs
-- Seed: top 200 tokens for the selected chain
-- Click any node to progressively expand its neighbors
-- Hover shows full token address in toolbar
+- Per-chain sync: `_meta.progressBlock` vs public RPC chain head, pool/token counts, periodic refresh
 
 ## Local Development
 
@@ -178,8 +172,6 @@ frontend/
       components/
         charts/
           EChart.svelte       # lazy ECharts wrapper with resize observer
-        graph/
-          TokenGraph.svelte   # Sigma.js force-directed graph
         tables/
           PoolsTable.svelte   # reusable pool table
         ui/
@@ -198,7 +190,7 @@ frontend/
       +page.svelte        # Dashboard
       pools/+page.svelte  # Pool Explorer
       tokens/+page.svelte # Token Explorer
-      graph/+page.svelte  # Network Graph
+      status/+page.svelte # Indexer status
     app.css               # Tailwind base + CSS custom properties (dark theme)
   .github/workflows/
     deploy.yml            # build → GitHub Pages
