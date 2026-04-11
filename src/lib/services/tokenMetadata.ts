@@ -34,6 +34,14 @@ function tokenKey(chainId: number, address: string): string {
 	return `${chainId}:${address.toLowerCase()}`
 }
 
+const TOKEN_NAME_MAX_LEN = 50
+const TOKEN_SYMBOL_MAX_LEN = 32
+
+/** Strip newline / tab characters (incl. CRLF), then cap length for safe UI text. */
+function sanitizeTokenDisplayField(raw: string, maxLen: number): string {
+	return raw.replace(/[\n\r\t]+/g, "").slice(0, maxLen)
+}
+
 function parseResult(entry: {
 	result?: unknown
 	error?: { message?: string }
@@ -44,7 +52,11 @@ function parseResult(entry: {
 		| undefined
 	if (!r) throw new Error("No result in response")
 	const { name, symbol, decimals } = r
-	return { name, symbol, decimals }
+	return {
+		name: sanitizeTokenDisplayField(String(name ?? ""), TOKEN_NAME_MAX_LEN),
+		symbol: sanitizeTokenDisplayField(String(symbol ?? ""), TOKEN_SYMBOL_MAX_LEN),
+		decimals,
+	}
 }
 
 async function fetchTokenMetadataRpcSingle(

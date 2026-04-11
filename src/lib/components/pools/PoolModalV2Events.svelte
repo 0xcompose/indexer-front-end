@@ -1,12 +1,18 @@
 <script lang="ts">
 	import { createQuery } from "@tanstack/svelte-query"
 	import { browser } from "$app/environment"
-	import { fetchUniswapV2PoolRecentEvents } from "$lib/services/uniswapV2PoolLogs"
+	import {
+		fetchUniswapV2PoolRecentEvents,
+		type V2PoolLogsResult,
+	} from "$lib/services/uniswapV2PoolLogs"
 	import { chainlistStore } from "$lib/stores/chainlist.svelte"
 	import type { PoolWithTokens } from "$lib/graphql/types"
 
 	let { pool, open = false }: { pool: PoolWithTokens | null; open?: boolean } =
 		$props()
+
+	/** Incremental rows while `eth_getLogs` chunks stream in */
+	let progressLogs = $state<V2PoolLogsResult | null>(null)
 
 	function txUrl(chainId: number, txHash: string): string | null {
 		const base = chainlistStore.getExplorerUrl(chainId)?.replace(/\/$/, "")
@@ -28,13 +34,18 @@
 
 	const logsQuery = createQuery(() => ({
 		queryKey: ["v2-pool-logs", pool?.id, pool?.createdAtBlock],
-		queryFn: () =>
-			fetchUniswapV2PoolRecentEvents({
+		queryFn: async () => {
+			progressLogs = null
+			return fetchUniswapV2PoolRecentEvents({
 				chainId: pool!.chainId,
 				poolAddress: pool!.address,
 				createdAtBlock: pool!.createdAtBlock,
 				rpcUrls: chainlistStore.getRpcUrls(pool!.chainId),
-			}),
+				onProgress: (partial) => {
+					progressLogs = partial
+				},
+			})
+		},
 		enabled:
 			browser &&
 			open &&
@@ -42,6 +53,12 @@
 			pool.protocol === "UniswapV2" &&
 			hasHttpRpc,
 	}))
+
+	const displayLogs = $derived(progressLogs ?? logsQuery.data)
+
+	const hasDisplayRows = $derived(
+		(displayLogs?.events?.length ?? 0) > 0,
+	)
 </script>
 
 {#if pool?.protocol === "UniswapV2"}
@@ -66,7 +83,7 @@
 			<p class="text-xs" style="color: var(--color-muted);">
 				No HTTP RPC in chainlist for this chain — cannot load logs.
 			</p>
-		{:else if logsQuery.isLoading}
+		{:else if logsQuery.isFetching && !hasDisplayRows}
 			<p class="text-xs" style="color: var(--color-muted);">Loading logs…</p>
 		{:else if logsQuery.isError}
 			<p class="text-xs text-red-400">
@@ -74,22 +91,27 @@
 					? logsQuery.error.message
 					: "Failed to fetch logs"}
 			</p>
-		{:else if logsQuery.data && logsQuery.data.events.length === 0}
+		{:else if logsQuery.isSuccess && displayLogs && displayLogs.events.length === 0}
 			<p class="text-xs leading-relaxed" style="color: var(--color-muted);">
 				No Swap / Mint / Burn in blocks
 				<span class="font-mono tabular-nums" style="color: var(--color-text);">
-					{fmtBlock(logsQuery.data.scannedFromBlock)}</span
+					{fmtBlock(displayLogs.scannedFromBlock)}</span
 				>
 				–
 				<span class="font-mono tabular-nums" style="color: var(--color-text);">
-					{fmtBlock(logsQuery.data.scannedToBlock)}</span
+					{fmtBlock(displayLogs.scannedToBlock)}</span
 				>
 				(inclusive, chain head at fetch time).
 			</p>
-		{:else if logsQuery.data}
+		{:else if displayLogs && displayLogs.events.length > 0}
+			{#if logsQuery.isFetching}
+				<p class="mb-1 text-[0.65rem]" style="color: var(--color-muted);">
+					Loading more log chunks…
+				</p>
+			{/if}
 			<p class="mb-2 font-mono text-[0.7rem] tabular-nums" style="color: var(--color-muted);">
-				Scanned blocks {fmtBlock(logsQuery.data.scannedFromBlock)} →
-				{fmtBlock(logsQuery.data.scannedToBlock)} (inclusive)
+				Scanned blocks {fmtBlock(displayLogs.scannedFromBlock)} →
+				{fmtBlock(displayLogs.scannedToBlock)} (inclusive)
 			</p>
 			<div class="max-h-56 overflow-y-auto overflow-x-auto rounded border text-xs" style="border-color: var(--color-border);">
 				<table class="w-full min-w-[28rem] text-left">
@@ -107,7 +129,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each logsQuery.data.events as row (row.transactionHash + String(row.logIndex))}
+						{#each displayLogs.events as row (row.transactionHash + String(row.logIndex))}
 							<tr style="border-top: 1px solid var(--color-border);">
 								<td class="whitespace-nowrap px-2 py-1.5 font-mono" style="color: var(--color-accent);">
 									{row.kind}

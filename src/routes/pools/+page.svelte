@@ -32,7 +32,7 @@
 	import PoolModalInsights from "$lib/components/pools/PoolModalInsights.svelte"
 	import PoolModalV2Events from "$lib/components/pools/PoolModalV2Events.svelte"
 
-	const PAGE_SIZE = 200
+	const PAGE_SIZE = 2000
 
 	let search = $state("")
 	let tokenFilter = $state("")
@@ -343,11 +343,14 @@
 			<option value={25}>Min token reach: ≥25</option>
 		</select>
 	</div>
-	<p class="mb-4 max-w-3xl text-[0.7rem] leading-snug" style="color: var(--color-muted);">
-		“Connectivity” uses each token’s indexed pool count (how many pools include that
-		token). It favors hub/routing pairs and hides dead-end legs without decoding
-		swaps. Sorting applies to loaded rows only; use Load more for a
-		wider slice, or sort in the indexer later for global order.
+	<p
+		class="mb-4 max-w-3xl text-[0.7rem] leading-snug"
+		style="color: var(--color-muted);"
+	>
+		“Connectivity” uses each token’s indexed pool count (how many pools
+		include that token). It favors hub/routing pairs and hides dead-end legs
+		without decoding swaps. Sorting applies to loaded rows only; use Load
+		more for a wider slice, or sort in the indexer later for global order.
 	</p>
 
 	{#if poolsQuery.isError}
@@ -428,7 +431,9 @@
 							<td class="px-4 py-2.5 align-top">
 								<div class="flex flex-col gap-1">
 									{#each sortedPoolTokens as pt (pt.token.id)}
-										<div class="min-h-[1.25rem] leading-snug">
+										<div
+											class="min-h-[1.25rem] leading-snug"
+										>
 											<TokenAddressCell
 												chainId={pt.token.chainId}
 												address={pt.token.address}

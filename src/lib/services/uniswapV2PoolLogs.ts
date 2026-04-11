@@ -156,40 +156,12 @@ function shortAmt(n: bigint): string {
 	return frac ? `${a}.${frac}` : (a ?? "0")
 }
 
-async function getEventsChunked<E extends "Swap" | "Mint" | "Burn">(
-	client: PublicClient,
-	pool: Address,
-	eventName: E,
-	fromBlock: bigint,
-	toBlock: bigint,
-) {
-	const out: Array<{
-		eventName?: string
-		blockNumber: bigint
-		transactionHash: string
-		logIndex: number
-		args: unknown
-	}> = []
-
-	let start = fromBlock
-	while (start <= toBlock) {
-		const end =
-			start + LOG_CHUNK_BLOCKS - 1n > toBlock
-				? toBlock
-				: start + LOG_CHUNK_BLOCKS - 1n
-		const batch = await getContractEvents(client, {
-			address: pool,
-			abi: uniswapV2PairEventsAbi,
-			eventName,
-			fromBlock: start,
-			toBlock: end,
-		})
-		for (const log of batch) {
-			out.push(log)
-		}
-		start = end + 1n
-	}
-	return out
+type ChunkLog = {
+	eventName?: string
+	blockNumber: bigint
+	transactionHash: string
+	logIndex: number
+	args: unknown
 }
 
 function rowFromLog(log: {
@@ -217,6 +189,56 @@ function rowFromLog(log: {
 	}
 }
 
+function mergeSortAndLimit(logs: ChunkLog[], limit: number): V2PoolEventRow[] {
+	const merged = [...logs]
+	merged.sort((a, b) => {
+		if (a.blockNumber !== b.blockNumber)
+			return a.blockNumber > b.blockNumber ? -1 : 1
+		return b.logIndex - a.logIndex
+	})
+	return merged.slice(0, limit).map((log) =>
+		rowFromLog({
+			eventName: log.eventName ?? "",
+			blockNumber: log.blockNumber,
+			transactionHash: log.transactionHash,
+			logIndex: log.logIndex,
+			args: log.args,
+		}),
+	)
+}
+
+async function getEventsChunked<E extends "Swap" | "Mint" | "Burn">(
+	client: PublicClient,
+	pool: Address,
+	eventName: E,
+	fromBlock: bigint,
+	toBlock: bigint,
+	onAfterRpcChunk?: (cumulativeForThisEvent: ChunkLog[]) => void,
+): Promise<ChunkLog[]> {
+	const out: ChunkLog[] = []
+
+	let start = fromBlock
+	while (start <= toBlock) {
+		const end =
+			start + LOG_CHUNK_BLOCKS - 1n > toBlock
+				? toBlock
+				: start + LOG_CHUNK_BLOCKS - 1n
+		const batch = await getContractEvents(client, {
+			address: pool,
+			abi: uniswapV2PairEventsAbi,
+			eventName,
+			fromBlock: start,
+			toBlock: end,
+		})
+		for (const log of batch) {
+			out.push(log)
+		}
+		onAfterRpcChunk?.(out)
+		start = end + 1n
+	}
+	return out
+}
+
 /**
  * Latest Swap / Mint / Burn logs for a V2 pair via RPC (on-demand).
  * Lower bound ≈ rolling calendar month from block timestamps (not fixed block count).
@@ -227,6 +249,8 @@ export async function fetchUniswapV2PoolRecentEvents(params: {
 	/** Pool deployment block from indexer */
 	createdAtBlock: unknown
 	rpcUrls: string[]
+	/** Fires after each `eth_getLogs` chunk (per event type) with best merged rows so far. */
+	onProgress?: (partial: V2PoolLogsResult) => void
 }): Promise<V2PoolLogsResult> {
 	const pool = getAddress(params.poolAddress as Address)
 	const rpcs = params.rpcUrls.filter(
@@ -252,32 +276,71 @@ export async function fetchUniswapV2PoolRecentEvents(params: {
 				head,
 			)
 
-			const [swaps, mints, burns] = await Promise.all([
-				getEventsChunked(client, pool, "Swap", fromBlock, head),
-				getEventsChunked(client, pool, "Mint", fromBlock, head),
-				getEventsChunked(client, pool, "Burn", fromBlock, head),
+			const swaps: ChunkLog[] = []
+			const mints: ChunkLog[] = []
+			const burns: ChunkLog[] = []
+
+			const scannedFromBlock = fromBlock.toString()
+			const scannedToBlock = head.toString()
+
+			const emitProgress = () => {
+				params.onProgress?.({
+					events: mergeSortAndLimit(
+						[...swaps, ...mints, ...burns],
+						V2_POOL_EVENTS_LIMIT,
+					),
+					scannedFromBlock,
+					scannedToBlock,
+				})
+			}
+
+			await Promise.all([
+				getEventsChunked(
+					client,
+					pool,
+					"Swap",
+					fromBlock,
+					head,
+					(c) => {
+						swaps.length = 0
+						swaps.push(...c)
+						emitProgress()
+					},
+				),
+				getEventsChunked(
+					client,
+					pool,
+					"Mint",
+					fromBlock,
+					head,
+					(c) => {
+						mints.length = 0
+						mints.push(...c)
+						emitProgress()
+					},
+				),
+				getEventsChunked(
+					client,
+					pool,
+					"Burn",
+					fromBlock,
+					head,
+					(c) => {
+						burns.length = 0
+						burns.push(...c)
+						emitProgress()
+					},
+				),
 			])
 
-			const merged = [...swaps, ...mints, ...burns]
-			merged.sort((a, b) => {
-				if (a.blockNumber !== b.blockNumber)
-					return a.blockNumber > b.blockNumber ? -1 : 1
-				return b.logIndex - a.logIndex
-			})
-
-			const events = merged.slice(0, V2_POOL_EVENTS_LIMIT).map((log) =>
-				rowFromLog({
-					eventName: log.eventName ?? "",
-					blockNumber: log.blockNumber,
-					transactionHash: log.transactionHash,
-					logIndex: log.logIndex,
-					args: log.args,
-				}),
+			const events = mergeSortAndLimit(
+				[...swaps, ...mints, ...burns],
+				V2_POOL_EVENTS_LIMIT,
 			)
 			return {
 				events,
-				scannedFromBlock: fromBlock.toString(),
-				scannedToBlock: head.toString(),
+				scannedFromBlock,
+				scannedToBlock,
 			}
 		} catch (e) {
 			lastErr = e
