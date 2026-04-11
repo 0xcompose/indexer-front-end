@@ -25,7 +25,7 @@
 		{ href: "/", label: "Dashboard", icon: "⬡" },
 		{ href: "/pools", label: "Pools", icon: "◈" },
 		{ href: "/tokens", label: "Tokens", icon: "◎" },
-		{ href: "/graph", label: "Graph", icon: "⬡" },
+		{ href: "/status", label: "Status", icon: "◉" },
 	]
 
 	function isActive(href: string) {
