@@ -257,3 +257,48 @@ export const TOKEN_POOLS = gql`
 		}
 	}
 `
+
+/** Indexed immutables keyed by pool `id` (same as `Pool.id`). */
+export const POOL_MODAL_IMMUTABLES = gql`
+	query PoolModalImmutables($poolId: String!) {
+		UniswapV3PoolImmutables(where: { id: { _eq: $poolId } }, limit: 1) {
+			id
+			fee
+			tickSpacing
+		}
+		UniswapV4PoolImmutables(where: { id: { _eq: $poolId } }, limit: 1) {
+			id
+			fee
+			tickSpacing
+			hooks
+		}
+		PancakeSwapInfinityPoolImmutables(where: { id: { _eq: $poolId } }, limit: 1) {
+			id
+			hooks
+			fee
+			parameters
+		}
+		BalancerV2PoolImmutables(where: { id: { _eq: $poolId } }, limit: 1) {
+			id
+			specialization
+		}
+		BalancerV3PoolImmutables(where: { id: { _eq: $poolId } }, limit: 1) {
+			id
+			factory
+			swapFeePercentage
+		}
+		AlgebraIntegralPoolImmutables(where: { id: { _eq: $poolId } }, limit: 1) {
+			id
+			deployer
+			tickSpacing
+		}
+		VelodromeSlipstreamCLPoolImmutables(where: { id: { _eq: $poolId } }, limit: 1) {
+			id
+			tickSpacing
+		}
+		VelodromeCPMMPoolImmutables(where: { id: { _eq: $poolId } }, limit: 1) {
+			id
+			stable
+		}
+	}
+`

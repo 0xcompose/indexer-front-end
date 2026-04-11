@@ -29,6 +29,7 @@
 	import LoadMore from "$lib/components/ui/LoadMore.svelte"
 	import Modal from "$lib/components/ui/Modal.svelte"
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
+	import PoolModalInsights from "$lib/components/pools/PoolModalInsights.svelte"
 	import PoolModalV2Events from "$lib/components/pools/PoolModalV2Events.svelte"
 
 	const PAGE_SIZE = 200
@@ -544,6 +545,8 @@
 					{/each}
 				</div>
 			</div>
+
+			<PoolModalInsights pool={selectedPool} open={modalOpen} />
 
 			<PoolModalV2Events pool={selectedPool} open={modalOpen} />
 		</div>
