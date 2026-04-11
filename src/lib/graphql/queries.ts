@@ -102,12 +102,15 @@ const POOL_FIELDS = `
 	address
 	protocol
 	creatorContract
+	createdAtBlock
+	createdAt
 	poolTokens {
 		tokenIndex
 		token {
 			id
 			address
 			chainId
+			poolCount
 		}
 	}
 `
@@ -182,12 +185,15 @@ export const POOLS_BY_TOKEN = gql`
 				address
 				protocol
 				creatorContract
+				createdAtBlock
+				createdAt
 				poolTokens {
 					tokenIndex
 					token {
 						id
 						address
 						chainId
+						poolCount
 					}
 				}
 			}
@@ -236,12 +242,15 @@ export const TOKEN_POOLS = gql`
 				address
 				protocol
 				creatorContract
+				createdAtBlock
+				createdAt
 				poolTokens {
 					tokenIndex
 					token {
 						id
 						address
 						chainId
+						poolCount
 					}
 				}
 			}

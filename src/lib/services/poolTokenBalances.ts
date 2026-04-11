@@ -3,15 +3,11 @@ import {
 	http,
 	erc20Abi,
 	getAddress,
-	defineChain,
 	formatUnits,
 	type Address,
 } from "viem"
 import type { DexProtocol } from "$lib/graphql/types"
-
-/** Multicall3 deployed on the same address across many EVM chains. */
-const MULTICALL3_ADDRESS =
-	"0xcA11bde05977b3631167028862bE2a173976CA11" as Address
+import { chainForRpc } from "$lib/services/viemChain"
 
 /** Pool types where `ERC20.balanceOf(pool)` is not a meaningful reserve read. */
 export const POOL_RESERVES_SKIP_PROTOCOLS = new Set<DexProtocol>([
@@ -23,25 +19,6 @@ export const POOL_RESERVES_SKIP_PROTOCOLS = new Set<DexProtocol>([
 
 export function shouldSkipPoolReserves(protocol: DexProtocol): boolean {
 	return POOL_RESERVES_SKIP_PROTOCOLS.has(protocol)
-}
-
-function chainForRpc(chainId: number, rpcUrl: string) {
-	return defineChain({
-		id: chainId,
-		name: "chain",
-		nativeCurrency: {
-			name: "Ether",
-			symbol: "ETH",
-			decimals: 18,
-		},
-		rpcUrls: { default: { http: [rpcUrl] } },
-		contracts: {
-			multicall3: {
-				address: MULTICALL3_ADDRESS,
-				blockCreated: 14_353_601,
-			},
-		},
-	})
 }
 
 export type TokenHolderBalanceCall = {

@@ -36,6 +36,10 @@ export interface Pool {
 	address: string
 	protocol: DexProtocol
 	creatorContract: string
+	/** Pool creation block (numeric); used for on-demand RPC log ranges */
+	createdAtBlock?: string | number | null
+	/** Creation time from indexer (timestamp) */
+	createdAt?: string | number | null
 }
 
 export interface PoolToken {
