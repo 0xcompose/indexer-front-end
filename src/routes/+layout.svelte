@@ -2,6 +2,7 @@
 	import "../app.css"
 	import { onMount } from "svelte"
 	import type { Snippet } from "svelte"
+	import { resolve } from "$app/paths"
 	import { page } from "$app/state"
 	import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query"
 	import { chainStore } from "$lib/stores/chain.svelte"
@@ -28,8 +29,9 @@
 	]
 
 	function isActive(href: string) {
-		if (href === "/") return page.url.pathname === "/"
-		return page.url.pathname.startsWith(href)
+		const path = resolve(href as "/")
+		if (href === "/") return page.url.pathname === path
+		return page.url.pathname === path || page.url.pathname.startsWith(`${path}/`)
 	}
 
 	let chainsLoading = $state(true)
@@ -73,9 +75,9 @@
 			</div>
 
 			<nav class="flex flex-col gap-1 px-2">
-				{#each navItems as item}
+				{#each navItems as item (item.href)}
 					<a
-						href={item.href}
+						href={resolve(item.href as "/")}
 						class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
 						style={isActive(item.href)
 							? "background: rgba(88,166,255,0.12); color: var(--color-accent);"
@@ -114,7 +116,7 @@
 					{#if chainsLoading}
 						<option disabled>Loading…</option>
 					{:else}
-						{#each chainStore.chains as chainId}
+						{#each chainStore.chains as chainId (chainId)}
 							<option value={String(chainId)}
 								>{chainlistStore.getChainName(chainId)} ({chainId})</option
 							>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from "svelte"
+	import { SvelteSet } from "svelte/reactivity"
 	import Graph from "graphology"
 	import type Sigma from "sigma"
 	import { gqlClient } from "$lib/graphql/client"
@@ -14,7 +15,7 @@
 	let container: HTMLDivElement | undefined = $state()
 	let sigma: Sigma | null = null
 	let graph: Graph
-	let expandedNodes = new Set<string>()
+	let expandedNodes = new SvelteSet<string>()
 
 	const NODE_COLOR = "#58a6ff"
 	const EDGE_COLOR = "#30363d"

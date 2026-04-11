@@ -282,7 +282,7 @@
 			bind:value={protocolFilter}
 		>
 			<option value={null}>All protocols</option>
-			{#each availableProtocols as p}
+			{#each availableProtocols as p (p)}
 				<option value={p}>{p}</option>
 			{/each}
 		</select>
@@ -339,7 +339,7 @@
 							</td>
 							<td class="px-4 py-2.5">
 								<div class="flex flex-wrap gap-1">
-									{#each pool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt}
+									{#each pool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt (pt.token.id)}
 										<TokenAddressCell
 											chainId={pt.token.chainId}
 											address={pt.token.address}
@@ -417,7 +417,7 @@
 					Tokens
 				</p>
 				<div class="flex flex-col gap-2">
-					{#each selectedPool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt}
+					{#each selectedPool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt (pt.token.id)}
 						<div
 							class="flex items-center gap-3 rounded-md border p-2"
 							style="border-color: var(--color-border); background: var(--color-bg);"

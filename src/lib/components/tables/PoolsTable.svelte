@@ -46,7 +46,7 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each pools as pool}
+			{#each pools as pool (pool.id)}
 				<tr
 					class="transition-colors"
 					style="border-bottom: 1px solid var(--color-border)22;"
@@ -67,7 +67,7 @@
 					</td>
 					<td class="px-4 py-2.5">
 					<div class="flex flex-wrap gap-1">
-						{#each pool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt}
+						{#each pool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt (pt.token.id)}
 							<TokenAddressCell
 								chainId={pt.token.chainId}
 								address={pt.token.address}

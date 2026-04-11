@@ -155,37 +155,39 @@
 	})
 
 	/** Descending by this token's reserve in the pool; N/A / unknown keeps list order stable until data arrives. */
-	const tokenPoolsSortedByModalTokenReserve = $derived.by((): PoolWithTokens[] => {
-		const pools = tokenPools
-		const token = selectedToken
-		if (!token || pools.length === 0) return pools
+	const tokenPoolsSortedByModalTokenReserve = $derived.by(
+		(): PoolWithTokens[] => {
+			const pools = tokenPools
+			const token = selectedToken
+			if (!token || pools.length === 0) return pools
 
-		const tokenLower = token.address.toLowerCase()
-		const data = poolBalancesQuery.data
+			const tokenLower = token.address.toLowerCase()
+			const data = poolBalancesQuery.data
 
-		const reserveFor = (p: PoolWithTokens): bigint | undefined => {
-			if (shouldSkipPoolReserves(p.protocol)) return undefined
-			return data?.balancesByPool
-				.get(p.address.toLowerCase())
-				?.get(tokenLower)
-		}
+			const reserveFor = (p: PoolWithTokens): bigint | undefined => {
+				if (shouldSkipPoolReserves(p.protocol)) return undefined
+				return data?.balancesByPool
+					.get(p.address.toLowerCase())
+					?.get(tokenLower)
+			}
 
-		return [...pools]
-			.map((p, i) => ({ p, i }))
-			.toSorted((x, y) => {
-				const rx = reserveFor(x.p)
-				const ry = reserveFor(y.p)
-				if (rx !== undefined && ry !== undefined) {
-					if (ry > rx) return 1
-					if (ry < rx) return -1
+			return [...pools]
+				.map((p, i) => ({ p, i }))
+				.toSorted((x, y) => {
+					const rx = reserveFor(x.p)
+					const ry = reserveFor(y.p)
+					if (rx !== undefined && ry !== undefined) {
+						if (ry > rx) return 1
+						if (ry < rx) return -1
+						return x.i - y.i
+					}
+					if (rx !== undefined) return -1
+					if (ry !== undefined) return 1
 					return x.i - y.i
-				}
-				if (rx !== undefined) return -1
-				if (ry !== undefined) return 1
-				return x.i - y.i
-			})
-			.map(({ p }) => p)
-	})
+				})
+				.map(({ p }) => p)
+		},
+	)
 
 	const poolReservesQueryFingerprint = $derived.by(() =>
 		tokenPools
@@ -425,7 +427,7 @@
 			{tokenPools.length} pools shown
 		</p>
 		<div class="flex flex-col gap-2">
-			{#each tokenPoolsSortedByModalTokenReserve as pool}
+			{#each tokenPoolsSortedByModalTokenReserve as pool (pool.id)}
 				<div
 					class="rounded-lg border p-3"
 					style="border-color: var(--color-border); background: var(--color-bg);"
@@ -440,7 +442,8 @@
 							{#if shouldSkipPoolReserves(pool.protocol)}
 								<span
 									title="ERC20 balanceOf the pool address is skipped for Balancer, Uniswap v4, and PancakeSwap Infinity (vault or singleton architecture)."
-								>N/A</span>
+									>N/A</span
+								>
 							{:else if poolBalancesQuery.isPending}
 								<span>Reserves…</span>
 							{:else if poolBalancesQuery.isError}
@@ -478,7 +481,7 @@
 						</div>
 					</div>
 					<div class="flex flex-wrap gap-1">
-						{#each pool.poolTokens.toSorted((a: PoolTokenInPool, b: PoolTokenInPool) => a.tokenIndex - b.tokenIndex) as pt}
+						{#each pool.poolTokens.toSorted((a: PoolTokenInPool, b: PoolTokenInPool) => a.tokenIndex - b.tokenIndex) as pt (pt.token.id)}
 							<TokenAddressCell
 								chainId={pt.token.chainId}
 								address={pt.token.address}

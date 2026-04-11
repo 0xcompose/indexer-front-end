@@ -32,12 +32,12 @@
 		aria-label={title}
 		tabindex="-1"
 	>
-		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div
 			class="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border"
 			style="background: var(--color-surface); border-color: var(--color-border);"
+			role="document"
 			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
 		>
 			<div
 				class="flex items-center justify-between border-b px-5 py-3"

@@ -260,7 +260,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each protocolData as row}
+						{#each protocolData as row (row.name)}
 							<tr
 								style="border-bottom: 1px solid var(--color-border);"
 							>
