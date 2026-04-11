@@ -2,6 +2,7 @@
 	import "../app.css"
 	import { onMount } from "svelte"
 	import type { Snippet } from "svelte"
+	import { goto } from "$app/navigation"
 	import { resolve } from "$app/paths"
 	import { page } from "$app/state"
 	import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query"
@@ -44,12 +45,56 @@
 			}>(CHAINS_QUERY)
 			const ids = data._meta.map((m) => m.chainId)
 			chainStore.chains = ids
-			if (ids.length > 0 && chainStore.selected === null) {
-				chainStore.selected = ids[0]
-			}
 		} finally {
 			chainsLoading = false
 		}
+	})
+
+	const chainQueryParam = $derived(
+		chainStore.selected === null ? "all" : String(chainStore.selected),
+	)
+
+	function navHref(path: string): string {
+		return `${resolve(path as "/")}?chain=${chainQueryParam}`
+	}
+
+	/** Keep `chainStore` in sync with `?chain=<id>|all` (bookmarkable, survives reload). */
+	$effect(() => {
+		if (chainsLoading || chainStore.chains.length === 0) return
+
+		void page.url.search
+		const ids = chainStore.chains
+		const param = page.url.searchParams.get("chain")
+
+		let next: number | null
+		if (param === "all") {
+			next = null
+		} else if (param != null && param !== "") {
+			const id = parseInt(param, 10)
+			next =
+				Number.isFinite(id) && ids.includes(id) ? id : (ids[0] ?? null)
+		} else {
+			// No `chain` param: keep valid in-memory choice (SPA) or default to first
+			next =
+				chainStore.selected !== null && ids.includes(chainStore.selected)
+					? chainStore.selected
+					: (ids[0] ?? null)
+		}
+
+		if (chainStore.selected !== next) {
+			chainStore.selected = next
+		}
+
+		const want = chainStore.selected === null ? "all" : String(chainStore.selected)
+		if (page.url.searchParams.get("chain") === want) return
+
+		const u = new URL(page.url.href)
+		u.searchParams.set("chain", want)
+		goto(`${u.pathname}${u.search}${u.hash}`, {
+			replaceState: true,
+			noScroll: true,
+			keepFocus: true,
+		})
 	})
 </script>
 
@@ -77,7 +122,7 @@
 			<nav class="flex flex-col gap-1 px-2">
 				{#each navItems as item (item.href)}
 					<a
-						href={resolve(item.href as "/")}
+						href={navHref(item.href)}
 						class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
 						style={isActive(item.href)
 							? "background: rgba(88,166,255,0.12); color: var(--color-accent);"
@@ -109,7 +154,13 @@
 						: String(chainStore.selected)}
 					onchange={(e) => {
 						const v = e.currentTarget.value
-						chainStore.selected = v === "all" ? null : parseInt(v)
+						const u = new URL(page.url.href)
+						u.searchParams.set("chain", v)
+						goto(`${u.pathname}${u.search}${u.hash}`, {
+							replaceState: true,
+							noScroll: true,
+							keepFocus: true,
+						})
 					}}
 				>
 					<option value="all">All chains</option>
