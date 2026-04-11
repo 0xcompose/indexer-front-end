@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from "svelte"
+	import { goto } from "$app/navigation"
 	import { createQuery } from "@tanstack/svelte-query"
 	import { gqlClient } from "$lib/graphql/client"
 	import {
@@ -27,10 +28,7 @@
 	import TokenAddressCell from "$lib/components/ui/TokenAddressCell.svelte"
 	import SearchInput from "$lib/components/ui/SearchInput.svelte"
 	import LoadMore from "$lib/components/ui/LoadMore.svelte"
-	import Modal from "$lib/components/ui/Modal.svelte"
 	import PageHeader from "$lib/components/ui/PageHeader.svelte"
-	import PoolModalInsights from "$lib/components/pools/PoolModalInsights.svelte"
-	import PoolModalV2Events from "$lib/components/pools/PoolModalV2Events.svelte"
 
 	const PAGE_SIZE = 2000
 
@@ -43,8 +41,6 @@
 	let minTokenPoolReach = $state(0)
 	let offset = $state(0)
 	let allPools = $state<PoolWithTokens[]>([])
-	let selectedPool = $state<PoolWithTokens | null>(null)
-	let modalOpen = $state(false)
 
 	const chainMetricsQuery = createQuery(() => {
 		const chainId = chainStore.selected
@@ -272,24 +268,13 @@
 	})
 
 	function openPool(pool: PoolWithTokens) {
-		selectedPool = pool
-		modalOpen = true
+		goto(`/pools/${encodeURIComponent(pool.id)}`)
 	}
 
 	function chainName(id: number) {
 		return chainlistStore.getChainName(id)
 	}
 
-	function formatCreationBlock(
-		value: string | number | bigint | null | undefined,
-	): string {
-		if (value == null || value === "") return ""
-		try {
-			return BigInt(value).toLocaleString()
-		} catch {
-			return String(value)
-		}
-	}
 </script>
 
 <div class="p-6">
@@ -455,105 +440,3 @@
 		</div>
 	{/if}
 </div>
-
-<Modal
-	open={modalOpen}
-	title="Pool details"
-	onClose={() => (modalOpen = false)}
->
-	{#if selectedPool}
-		<div class="flex flex-col gap-4 text-sm">
-			<div>
-				<p
-					class="mb-1 text-xs font-medium uppercase"
-					style="color: var(--color-muted);"
-				>
-					Address
-				</p>
-				<AddressCell address={selectedPool.address} short={false} />
-			</div>
-			<div>
-				<p
-					class="mb-1 text-xs font-medium uppercase"
-					style="color: var(--color-muted);"
-				>
-					Protocol
-				</p>
-				<ProtocolBadge protocol={selectedPool.protocol} />
-			</div>
-			<div>
-				<p
-					class="mb-1 text-xs font-medium uppercase"
-					style="color: var(--color-muted);"
-				>
-					Chain
-				</p>
-				<span style="color: var(--color-text);"
-					>{chainName(selectedPool.chainId)}</span
-				>
-			</div>
-			<div>
-				<p
-					class="mb-1 text-xs font-medium uppercase"
-					style="color: var(--color-muted);"
-				>
-					Creation block
-				</p>
-				{#if selectedPool.createdAtBlock != null && selectedPool.createdAtBlock !== ""}
-					<span
-						class="font-mono tabular-nums"
-						style="color: var(--color-text);"
-					>
-						{formatCreationBlock(selectedPool.createdAtBlock)}
-					</span>
-				{:else}
-					<span style="color: var(--color-muted);">—</span>
-				{/if}
-			</div>
-			<div>
-				<p
-					class="mb-1 text-xs font-medium uppercase"
-					style="color: var(--color-muted);"
-				>
-					Creator Contract
-				</p>
-				<AddressCell
-					address={selectedPool.creatorContract}
-					short={false}
-				/>
-			</div>
-			<div>
-				<p
-					class="mb-2 text-xs font-medium uppercase"
-					style="color: var(--color-muted);"
-				>
-					Tokens
-				</p>
-				<div class="flex flex-col gap-2">
-					{#each selectedPool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt (pt.token.id)}
-						<div
-							class="flex items-center gap-3 rounded-md border p-2"
-							style="border-color: var(--color-border); background: var(--color-bg);"
-						>
-							<span
-								class="flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold"
-								style="background: var(--color-border); color: var(--color-muted);"
-							>
-								{pt.tokenIndex}
-							</span>
-							<TokenAddressCell
-								chainId={pt.token.chainId}
-								address={pt.token.address}
-								short={false}
-							/>
-						</div>
-					{/each}
-				</div>
-			</div>
-
-			<PoolModalInsights pool={selectedPool} open={modalOpen} />
-
-			<PoolModalV2Events pool={selectedPool} open={modalOpen} />
-		</div>
-	{/if}
-</Modal>

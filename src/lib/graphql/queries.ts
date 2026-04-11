@@ -115,6 +115,25 @@ const POOL_FIELDS = `
 	}
 `
 
+export const POOL_BY_ID = gql`
+	query PoolById($id: String!) {
+		Pool(where: { id: { _eq: $id } }, limit: 1) {
+			${POOL_FIELDS}
+		}
+	}
+`
+
+export const TOKEN_BY_ID = gql`
+	query TokenById($id: String!) {
+		Token(where: { id: { _eq: $id } }, limit: 1) {
+			id
+			chainId
+			address
+			poolCount
+		}
+	}
+`
+
 export const POOLS_LIST_BY_CHAIN = gql`
 	query PoolsListByChain($chainId: Int!, $limit: Int!, $offset: Int!) {
 		Pool(
