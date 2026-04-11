@@ -1,10 +1,7 @@
 <script lang="ts">
 	import { createQuery } from "@tanstack/svelte-query"
 	import { browser } from "$app/environment"
-	import {
-		fetchUniswapV2PoolRecentEvents,
-		recentWindowBlocksForChain,
-	} from "$lib/services/uniswapV2PoolLogs"
+	import { fetchUniswapV2PoolRecentEvents } from "$lib/services/uniswapV2PoolLogs"
 	import { chainlistStore } from "$lib/stores/chainlist.svelte"
 	import type { PoolWithTokens } from "$lib/graphql/types"
 
@@ -24,12 +21,6 @@
 			return s
 		}
 	}
-
-	const scanWindowLabel = $derived(
-		pool != null
-			? Number(recentWindowBlocksForChain(pool.chainId)).toLocaleString()
-			: "—",
-	)
 
 	const hasHttpRpc = $derived(
 		pool ? chainlistStore.getRpcUrls(pool.chainId).length > 0 : false,
@@ -66,9 +57,9 @@
 		</p>
 		<p class="mb-3 text-[0.7rem] leading-snug" style="color: var(--color-muted);">
 			Latest Mint / Burn / Swap logs from a public RPC (not indexed). Lower bound
-			is <code class="text-[0.65rem]">max(createdAtBlock, head − {scanWindowLabel})</code>
-			(~30d for this chain’s block time, capped). Older pools don’t scan full
-			chain history.
+			is <code class="text-[0.65rem]">max(createdAtBlock, ~30d floor from block timestamps)</code>
+			(RPC probes batched block times until the month boundary; wide scan capped).
+			Older pools don’t scan full chain history.
 		</p>
 
 		{#if !hasHttpRpc}

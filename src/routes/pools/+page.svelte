@@ -19,8 +19,8 @@
 	import {
 		poolConnectivityScore,
 		poolMinTokenPoolCount,
-		poolTokenReachMinMax,
 		formatCompactInt,
+		tokenIndexerPoolCount,
 	} from "$lib/utils/poolRanking"
 	import ProtocolBadge from "$lib/components/ui/ProtocolBadge.svelte"
 	import AddressCell from "$lib/components/ui/AddressCell.svelte"
@@ -376,7 +376,7 @@
 						<th
 							class="px-4 py-2 text-left font-medium"
 							style="color: var(--color-muted);"
-							title="Indexer poolCount per token (min–max)"
+							title="Indexer poolCount per token (same order as Tokens)"
 							>Reach</th
 						>
 						<th
@@ -387,7 +387,9 @@
 				</thead>
 				<tbody>
 					{#each filtered as pool (pool.id)}
-						{@const reach = poolTokenReachMinMax(pool)}
+						{@const sortedPoolTokens = pool.poolTokens.toSorted(
+							(a, b) => a.tokenIndex - b.tokenIndex,
+						)}
 						<tr
 							class="cursor-pointer transition-colors hover:bg-white/5"
 							style="border-bottom: 1px solid var(--color-border)22;"
@@ -406,19 +408,31 @@
 								{chainName(pool.chainId)}
 							</td>
 							<td
-								class="px-4 py-2.5 font-mono text-xs tabular-nums"
+								class="px-4 py-2.5 align-top font-mono text-xs tabular-nums"
 								style="color: var(--color-muted);"
-								title="Min–max poolCount among tokens in this pool"
 							>
-								{formatCompactInt(reach.min)}–{formatCompactInt(reach.max)}
+								<div class="flex flex-col gap-1">
+									{#each sortedPoolTokens as pt (pt.token.id)}
+										<span
+											class="inline-block min-h-[1.25rem] leading-snug"
+											title="Pools including this token (indexer)"
+										>
+											{formatCompactInt(
+												tokenIndexerPoolCount(pt.token),
+											)}
+										</span>
+									{/each}
+								</div>
 							</td>
-							<td class="px-4 py-2.5">
-								<div class="flex flex-wrap gap-1">
-									{#each pool.poolTokens.toSorted((a, b) => a.tokenIndex - b.tokenIndex) as pt (pt.token.id)}
-										<TokenAddressCell
-											chainId={pt.token.chainId}
-											address={pt.token.address}
-										/>
+							<td class="px-4 py-2.5 align-top">
+								<div class="flex flex-col gap-1">
+									{#each sortedPoolTokens as pt (pt.token.id)}
+										<div class="min-h-[1.25rem] leading-snug">
+											<TokenAddressCell
+												chainId={pt.token.chainId}
+												address={pt.token.address}
+											/>
+										</div>
 									{/each}
 								</div>
 							</td>

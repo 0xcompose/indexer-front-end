@@ -1,11 +1,15 @@
 import type { PoolWithTokens } from "$lib/graphql/types"
 
+export function tokenIndexerPoolCount(token: {
+	poolCount?: number | null
+}): number {
+	const n = token.poolCount
+	if (n == null) return 0
+	return typeof n === "number" && Number.isFinite(n) ? n : Number(n) || 0
+}
+
 function tokenPoolCounts(pool: PoolWithTokens): number[] {
-	return pool.poolTokens.map((pt) => {
-		const n = pt.token.poolCount
-		if (n == null) return 0
-		return typeof n === "number" && Number.isFinite(n) ? n : Number(n) || 0
-	})
+	return pool.poolTokens.map((pt) => tokenIndexerPoolCount(pt.token))
 }
 
 /** Smallest indexer `poolCount` among tokens (bottleneck for “obscure leg”). */
@@ -23,15 +27,6 @@ export function poolConnectivityScore(pool: PoolWithTokens): number {
 	let s = 0
 	for (const n of tokenPoolCounts(pool)) s += Math.log1p(Math.max(0, n))
 	return s
-}
-
-export function poolTokenReachMinMax(pool: PoolWithTokens): {
-	min: number
-	max: number
-} {
-	const c = tokenPoolCounts(pool)
-	if (!c.length) return { min: 0, max: 0 }
-	return { min: Math.min(...c), max: Math.max(...c) }
 }
 
 export function formatCompactInt(n: number): string {
